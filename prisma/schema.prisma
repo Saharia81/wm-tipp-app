@@ -1,0 +1,103 @@
+// WM 2026 Tipp-App — data model
+// Domain: users predict scores for 104 matches; one bonus pick for the World Champion.
+// Scoring is computed once the admin enters the official result for a match.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String
+  passwordHash String
+  isAdmin      Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+
+  tips         Tip[]
+  championTip  ChampionTip?
+}
+
+model Team {
+  id        String  @id @default(cuid())
+  // Short FIFA code, e.g. "GER", "ARG"
+  code      String  @unique
+  name      String
+  // Group letter A..L (null for knockout-only placeholders, if ever needed)
+  group     String?
+
+  homeMatches  Match[]       @relation("HomeTeam")
+  awayMatches  Match[]       @relation("AwayTeam")
+  championTips ChampionTip[]
+}
+
+// Tournament stage — matches the WM 2026 format (48 teams, 12 groups, then KO rounds).
+enum Stage {
+  GROUP
+  ROUND_OF_32
+  ROUND_OF_16
+  QUARTER_FINAL
+  SEMI_FINAL
+  THIRD_PLACE
+  FINAL
+}
+
+model Match {
+  id          String    @id @default(cuid())
+  stage       Stage
+  // Group letter for GROUP stage matches, null otherwise.
+  group       String?
+  // Kickoff in UTC. Tips lock at this instant.
+  kickoffAt   DateTime
+  homeTeamId  String
+  awayTeamId  String
+  // Final result — null until the admin enters it.
+  homeScore   Int?
+  awayScore   Int?
+  // Set when the admin saves the result; used to know when to (re)score tips.
+  resultEnteredAt DateTime?
+
+  homeTeam Team  @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam Team  @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  tips     Tip[]
+
+  @@index([kickoffAt])
+}
+
+model Tip {
+  id        String   @id @default(cuid())
+  userId    String
+  matchId   String
+  homeScore Int
+  awayScore Int
+  // Computed by lib/scoring.ts after the official result is entered. Null until then.
+  points    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  // One tip per user per match.
+  @@unique([userId, matchId])
+  @@index([matchId])
+}
+
+// Bonus pick: World Champion. Locked at the kickoff of the tournament's first match.
+// Worth 10 points if the picked team wins the FINAL.
+model ChampionTip {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  teamId    String
+  points    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id])
+}

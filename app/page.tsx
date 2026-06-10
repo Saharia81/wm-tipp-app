@@ -1,65 +1,70 @@
 import Image from "next/image";
 
+// Mobile-first landing page. Auth and the live tip flow will replace these placeholders.
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="flex-1 flex flex-col items-center px-5 py-10 bg-gradient-to-b from-[#0a1f44] to-[#142a5c] text-white">
+      <div className="w-full max-w-md flex flex-col gap-8">
+        <header className="text-center">
+          <p className="text-sm uppercase tracking-[0.3em] text-white/60">
+            FIFA Weltmeisterschaft 2026
           </p>
+          <h1 className="mt-2 text-4xl font-bold tracking-tight">
+            WM-Tipp 2026
+          </h1>
+          <p className="mt-3 text-white/80">
+            Tippe alle 104 Spiele. Tippe deinen Weltmeister. Sammle Punkte.
+          </p>
+        </header>
+
+        <div className="flex justify-center">
+          <Image
+            src="/tipp-app-logo.png"
+            alt="WM-Tipp Maskottchen"
+            width={450}
+            height={600}
+            priority
+            className="w-full max-w-xs h-auto rounded-2xl"
+          />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+
+        <section className="rounded-2xl bg-white/5 border border-white/10 p-5 backdrop-blur">
+          <h2 className="text-lg font-semibold">Punkte-System</h2>
+          <ul className="mt-3 space-y-2 text-sm text-white/85">
+            <li>
+              <span className="font-bold text-emerald-300">4</span> · Exaktes
+              Ergebnis
+            </li>
+            <li>
+              <span className="font-bold text-emerald-300">3</span> · Sieger und
+              Tordifferenz
+            </li>
+            <li>
+              <span className="font-bold text-emerald-300">2</span> · Sieger
+              richtig
+            </li>
+            <li>
+              <span className="font-bold text-emerald-300">10</span> ·
+              Weltmeister-Tipp (vor dem ersten Spiel)
+            </li>
+          </ul>
+        </section>
+
+        <div className="flex flex-col gap-3">
           <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/register"
+            className="h-12 rounded-full bg-emerald-400 text-[#0a1f44] font-semibold flex items-center justify-center"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
+            Registrieren
           </a>
           <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/login"
+            className="h-12 rounded-full border border-white/30 font-medium flex items-center justify-center"
           >
-            Documentation
+            Anmelden
           </a>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
