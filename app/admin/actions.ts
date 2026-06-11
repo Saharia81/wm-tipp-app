@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { scoreTip, scoreChampionTip } from "@/lib/scoring";
+import { applyMatchResult } from "@/lib/scoring";
 import { Stage } from "@/app/generated/prisma/client";
 
 const ResultSchema = z.object({
@@ -46,53 +46,9 @@ export async function saveResultAction(
   const { matchId, homeScore, awayScore } = parsed.data;
 
   // One transaction so the match update + tip recomputes + champion recompute (if FINAL) commit together.
-  const tipsScored = await prisma.$transaction(async (tx) => {
-    const updated = await tx.match.update({
-      where: { id: matchId },
-      data: {
-        homeScore,
-        awayScore,
-        resultEnteredAt: new Date(),
-      },
-      select: { id: true, stage: true, homeTeamId: true, awayTeamId: true },
-    });
-
-    const tips = await tx.tip.findMany({
-      where: { matchId: updated.id },
-      select: { id: true, homeScore: true, awayScore: true },
-    });
-
-    for (const t of tips) {
-      const points = scoreTip(
-        { homeScore, awayScore },
-        { homeScore: t.homeScore, awayScore: t.awayScore },
-      );
-      await tx.tip.update({ where: { id: t.id }, data: { points } });
-    }
-
-    // FINAL determines the World Champion → recompute ChampionTip points for everyone.
-    // A drawn FINAL means no champion is known yet (admin should re-enter after extra time/penalties).
-    if (updated.stage === Stage.FINAL) {
-      const championTeamId =
-        homeScore > awayScore
-          ? updated.homeTeamId
-          : awayScore > homeScore
-            ? updated.awayTeamId
-            : null;
-      const championTips = await tx.championTip.findMany({
-        select: { id: true, teamId: true },
-      });
-      for (const ct of championTips) {
-        const points = scoreChampionTip(ct.teamId, championTeamId);
-        await tx.championTip.update({
-          where: { id: ct.id },
-          data: { points: championTeamId ? points : null },
-        });
-      }
-    }
-
-    return tips.length;
-  });
+  const tipsScored = await prisma.$transaction((tx) =>
+    applyMatchResult(tx, matchId, homeScore, awayScore),
+  );
 
   revalidatePath("/admin");
   revalidatePath("/tipps");
