@@ -9,6 +9,7 @@ const protectedPaths = [
   "/admin",
   "/tabelle",
   "/wm-tipp",
+  "/profil",
 ];
 
 export default {

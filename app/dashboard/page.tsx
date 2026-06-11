@@ -1,12 +1,22 @@
 import Link from "next/link";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import { logoutAction } from "./actions";
 
 // Server component — middleware guarantees `session` is non-null on this route.
 export default async function DashboardPage() {
   const session = await auth();
-  const name = session?.user?.name ?? "Tipp-Champion";
   const isAdmin = session?.user?.isAdmin ?? false;
+  // Namen aus der DB lesen, damit ein Update auf /profil sofort sichtbar ist
+  // (das JWT-Token wird erst beim nächsten Login aktualisiert).
+  const userId = session?.user?.id;
+  const dbUser = userId
+    ? await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      })
+    : null;
+  const name = dbUser?.name ?? session?.user?.name ?? "Tipp-Champion";
 
   return (
     <main className="flex-1 flex flex-col items-center px-5 py-10 bg-gradient-to-b from-[#0a1f44] to-[#142a5c] text-white">
@@ -34,6 +44,12 @@ export default async function DashboardPage() {
             className="h-12 rounded-full bg-white/5 border border-white/15 text-white/80 font-medium flex items-center justify-center"
           >
             Tabelle
+          </Link>
+          <Link
+            href="/profil"
+            className="h-12 rounded-full bg-white/5 border border-white/15 text-white/80 font-medium flex items-center justify-center"
+          >
+            Profil
           </Link>
           {isAdmin && (
             <Link
