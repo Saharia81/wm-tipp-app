@@ -19,8 +19,9 @@ export type AvatarState =
   | { error?: string; success?: boolean }
   | undefined;
 
-const MAX_AVATAR_BYTES = 10 * 1024 * 1024; // 10 MB hochladbar (Handy-Fotos)
-const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
+// Das Bild wird im Browser auf 256x256 JPEG runtergerechnet, bevor es
+// hochgeladen wird (siehe ProfilForm). 1 MB ist großzügig — typisch ~30 KB.
+const MAX_AVATAR_BYTES = 1 * 1024 * 1024;
 
 export async function updateNameAction(
   _prev: UpdateNameState,
@@ -65,35 +66,19 @@ export async function uploadAvatarAction(
     return { error: "Bitte wähle ein Bild aus." };
   }
   if (file.size > MAX_AVATAR_BYTES) {
-    return { error: "Bild ist zu groß (max. 10 MB)." };
+    return { error: "Bild ist zu groß." };
   }
-  if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
-    return { error: "Nur JPEG, PNG oder WebP erlaubt." };
+  // Browser sendet immer JPEG (siehe ProfilForm — Canvas.toBlob).
+  if (file.type !== "image/jpeg") {
+    return { error: "Ungültiges Bildformat." };
   }
 
-  let webp: Buffer;
-  try {
-    // Dynamischer Import: sharp ist ein natives Modul mit Plattform-Binaries.
-    // Auf Vercel kann es beim Laden scheitern (libvips fehlt) — wenn das in
-    // einem top-level import passiert, reißt es das ganze Action-Modul mit,
-    // also auch die Namens-Action. Lazy-Load isoliert den Fehler auf den
-    // Avatar-Upload selbst.
-    const sharp = (await import("sharp")).default;
-    const buf = Buffer.from(await file.arrayBuffer());
-    webp = await sharp(buf)
-      .rotate() // EXIF-Orientation berücksichtigen (Handy-Fotos!)
-      .resize(256, 256, { fit: "cover", position: "centre" })
-      .webp({ quality: 82 })
-      .toBuffer();
-  } catch {
-    return { error: "Bild konnte nicht verarbeitet werden." };
-  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
 
   await prisma.user.update({
     where: { id: userId },
     data: {
-      // Prisma 7 erwartet Uint8Array, nicht Buffer.
-      avatarData: new Uint8Array(webp),
+      avatarData: bytes,
       avatarUpdatedAt: new Date(),
     },
   });
