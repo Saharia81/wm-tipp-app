@@ -21,7 +21,7 @@ export async function GET(
   // immutable: das <img src> trägt ?v=<avatarUpdatedAt>, neue URL = neues Bild.
   return new Response(new Uint8Array(user.avatarData), {
     headers: {
-      "Content-Type": "image/webp",
+      "Content-Type": "image/jpeg",
       "Cache-Control": "public, max-age=31536000, immutable",
     },
   });

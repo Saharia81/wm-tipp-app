@@ -15,6 +15,41 @@ type ProfilFormProps = {
   avatarVersion: string | null;
 };
 
+const AVATAR_SIZE = 256;
+const AVATAR_QUALITY = 0.82;
+
+// Resize im Browser, statt sharp auf dem Server: sharp braucht libvips,
+// das auf Vercel Hobby nicht verfügbar ist. Canvas reicht für 256x256.
+async function resizeToJpegBlob(file: File): Promise<Blob> {
+  // imageOrientation: "from-image" => EXIF-Drehung berücksichtigen (Handy-Fotos).
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  try {
+    // Cover-Crop: kürzere Seite passt auf 256, längere wird mittig beschnitten.
+    const scale = Math.max(AVATAR_SIZE / bitmap.width, AVATAR_SIZE / bitmap.height);
+    const w = bitmap.width * scale;
+    const h = bitmap.height * scale;
+    const dx = (AVATAR_SIZE - w) / 2;
+    const dy = (AVATAR_SIZE - h) / 2;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = AVATAR_SIZE;
+    canvas.height = AVATAR_SIZE;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("no 2d context");
+    ctx.drawImage(bitmap, dx, dy, w, h);
+
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error("toBlob null"))),
+        "image/jpeg",
+        AVATAR_QUALITY,
+      );
+    });
+  } finally {
+    bitmap.close();
+  }
+}
+
 export function ProfilForm({
   currentName,
   userId,
@@ -34,6 +69,9 @@ export function ProfilForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [hasFile, setHasFile] = useState(false);
+  // Fehler aus dem Browser-Resize (vor der Server-Action). Wird vom
+  // avatarState überschrieben, sobald die Action zurückkommt.
+  const [clientError, setClientError] = useState<string | null>(null);
 
   useEffect(() => {
     // Object-URLs müssen wieder freigegeben werden, sonst leakt der Browser Speicher.
@@ -56,6 +94,7 @@ export function ProfilForm({
   }, [avatarState?.success]);
 
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setClientError(null);
     const file = e.target.files?.[0];
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     if (file) {
@@ -67,13 +106,32 @@ export function ProfilForm({
     }
   }
 
+  async function onAvatarSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setClientError(null);
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) {
+      setClientError("Bitte wähle ein Bild aus.");
+      return;
+    }
+    let blob: Blob;
+    try {
+      blob = await resizeToJpegBlob(file);
+    } catch {
+      setClientError("Bild konnte nicht verarbeitet werden.");
+      return;
+    }
+    const fd = new FormData();
+    fd.append("avatar", blob, "avatar.jpg");
+    avatarAction(fd);
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      {/* Avatar-Form: eigenes useActionState, damit Erfolg/Fehler nicht mit
-          dem Namensformular kollidieren. React kümmert sich bei Server Actions
-          automatisch um multipart/form-data — kein encType nötig. */}
+      {/* Avatar-Form: kein form action — wir machen den Resize im Browser und
+          rufen die Action danach manuell auf (siehe onAvatarSubmit). */}
       <form
-        action={avatarAction}
+        onSubmit={onAvatarSubmit}
         className="flex flex-col gap-4 rounded-2xl bg-white/5 border border-white/10 p-4"
       >
         <p className="text-xs uppercase tracking-[0.2em] text-white/50">
@@ -111,14 +169,14 @@ export function ProfilForm({
               className="block w-full text-sm text-white/80 file:mr-3 file:rounded-full file:border-0 file:bg-white/15 file:px-4 file:py-2 file:text-white file:font-medium file:cursor-pointer"
             />
             <span className="mt-1 block text-xs text-white/50">
-              JPEG, PNG oder WebP · max. 10 MB
+              JPEG, PNG oder WebP
             </span>
           </label>
         </div>
 
-        {avatarState?.error && (
+        {(clientError || avatarState?.error) && (
           <p className="text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-lg px-3 py-2">
-            {avatarState.error}
+            {clientError ?? avatarState?.error}
           </p>
         )}
         {avatarState?.success && (

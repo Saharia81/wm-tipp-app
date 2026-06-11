@@ -5,13 +5,9 @@ const nextConfig: NextConfig = {
   // Marking them external makes Next load them from node_modules at runtime.
   serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg"],
 
-  // Default-Limit für Server Actions ist 1 MB; Handy-Fotos sind oft 4-8 MB,
-  // also 10 MB als Puffer. sharp resized danach eh auf ~25 KB WebP.
-  experimental: {
-    serverActions: {
-      bodySizeLimit: "10mb",
-    },
-  },
+  // Default-Limit für Server Actions ist 1 MB — passt jetzt locker, weil
+  // das Bild im Browser auf 256x256 JPEG (~30 KB) verkleinert wird, bevor
+  // es überhaupt zum Server geht.
 };
 
 export default nextConfig;
