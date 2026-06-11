@@ -14,7 +14,21 @@ const credentialsSchema = z.object({
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
   ...authConfig,
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    maxAge: 60 * 60 * 24 * 365, // 1 Jahr eingeloggt bleiben
+  },
+  cookies: {
+    sessionToken: {
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 60 * 60 * 24 * 365, // muss zu session.maxAge passen, sonst stirbt das Cookie beim App-Schließen
+      },
+    },
+  },
   providers: [
     Credentials({
       authorize: async (credentials) => {
