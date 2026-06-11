@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import sharp from "sharp";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -74,6 +73,12 @@ export async function uploadAvatarAction(
 
   let webp: Buffer;
   try {
+    // Dynamischer Import: sharp ist ein natives Modul mit Plattform-Binaries.
+    // Auf Vercel kann es beim Laden scheitern (libvips fehlt) — wenn das in
+    // einem top-level import passiert, reißt es das ganze Action-Modul mit,
+    // also auch die Namens-Action. Lazy-Load isoliert den Fehler auf den
+    // Avatar-Upload selbst.
+    const sharp = (await import("sharp")).default;
     const buf = Buffer.from(await file.arrayBuffer());
     webp = await sharp(buf)
       .rotate() // EXIF-Orientation berücksichtigen (Handy-Fotos!)
