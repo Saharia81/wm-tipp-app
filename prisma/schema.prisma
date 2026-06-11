@@ -19,6 +19,11 @@ model User {
   isAdmin      Boolean      @default(false)
   createdAt    DateTime     @default(now())
 
+  // Profilbild: Bytes liegen direkt in der DB (256x256 WebP, ~25 KB).
+  // avatarUpdatedAt dient als Cache-Buster in der <img src>-URL.
+  avatarData      Bytes?
+  avatarUpdatedAt DateTime?
+
   tips         Tip[]
   championTip  ChampionTip?
 }

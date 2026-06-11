@@ -13,7 +13,7 @@ export default async function ProfilPage() {
   // (das JWT-Token enthält noch den alten Namen, bis sich der User neu anmeldet).
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { name: true, email: true },
+    select: { id: true, name: true, email: true, avatarUpdatedAt: true },
   });
   if (!user) redirect("/login");
 
@@ -34,7 +34,11 @@ export default async function ProfilPage() {
           <p className="mt-1 text-white/90">{user.email}</p>
         </section>
 
-        <ProfilForm currentName={user.name} />
+        <ProfilForm
+          currentName={user.name}
+          userId={user.id}
+          avatarVersion={user.avatarUpdatedAt?.toISOString() ?? null}
+        />
       </div>
     </main>
   );

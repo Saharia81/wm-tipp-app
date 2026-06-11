@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { Avatar } from "@/app/_components/Avatar";
 
 type Row = {
   id: string;
   name: string;
+  avatarVersion: string | null;
   total: number;
   scored: number;
   tipped: number;
@@ -19,6 +21,9 @@ export default async function TabellePage() {
     select: {
       id: true,
       name: true,
+      // Nur den Timestamp lesen, NICHT die Bytes — Avatare lädt der Browser
+      // separat über /api/avatar/[userId].
+      avatarUpdatedAt: true,
       tips: { select: { points: true } },
       championTip: { select: { points: true } },
     },
@@ -32,6 +37,7 @@ export default async function TabellePage() {
       return {
         id: u.id,
         name: u.name,
+        avatarVersion: u.avatarUpdatedAt?.toISOString() ?? null,
         total: tipSum + championPoints,
         scored,
         tipped: u.tips.length,
@@ -83,6 +89,12 @@ export default async function TabellePage() {
                   <div className="w-8 text-right text-lg font-semibold text-white/80">
                     {row.rank}.
                   </div>
+                  <Avatar
+                    userId={row.id}
+                    name={row.name}
+                    version={row.avatarVersion}
+                    size={40}
+                  />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">
                       {row.name}
