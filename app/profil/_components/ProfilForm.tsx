@@ -20,14 +20,26 @@ const AVATAR_QUALITY = 0.82;
 
 // Resize im Browser, statt sharp auf dem Server: sharp braucht libvips,
 // das auf Vercel Hobby nicht verfügbar ist. Canvas reicht für 256x256.
+// HTMLImageElement statt createImageBitmap, weil Safari (besonders iOS)
+// mit HEIC und der imageOrientation-Option zickt. <img> versteht alles,
+// was die Plattform anzeigen kann — inkl. iPhone-Fotos in HEIC.
 async function resizeToJpegBlob(file: File): Promise<Blob> {
-  // imageOrientation: "from-image" => EXIF-Drehung berücksichtigen (Handy-Fotos).
-  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const url = URL.createObjectURL(file);
   try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("image decode failed"));
+      el.src = url;
+    });
+
     // Cover-Crop: kürzere Seite passt auf 256, längere wird mittig beschnitten.
-    const scale = Math.max(AVATAR_SIZE / bitmap.width, AVATAR_SIZE / bitmap.height);
-    const w = bitmap.width * scale;
-    const h = bitmap.height * scale;
+    const scale = Math.max(
+      AVATAR_SIZE / img.naturalWidth,
+      AVATAR_SIZE / img.naturalHeight,
+    );
+    const w = img.naturalWidth * scale;
+    const h = img.naturalHeight * scale;
     const dx = (AVATAR_SIZE - w) / 2;
     const dy = (AVATAR_SIZE - h) / 2;
 
@@ -36,7 +48,7 @@ async function resizeToJpegBlob(file: File): Promise<Blob> {
     canvas.height = AVATAR_SIZE;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("no 2d context");
-    ctx.drawImage(bitmap, dx, dy, w, h);
+    ctx.drawImage(img, dx, dy, w, h);
 
     return await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
@@ -46,7 +58,7 @@ async function resizeToJpegBlob(file: File): Promise<Blob> {
       );
     });
   } finally {
-    bitmap.close();
+    URL.revokeObjectURL(url);
   }
 }
 
