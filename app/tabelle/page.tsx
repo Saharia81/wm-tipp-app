@@ -97,58 +97,60 @@ export default async function TabellePage() {
             {ranked.map((row) => {
               const isMe = row.id === meId;
               return (
-                <li
-                  key={row.id}
-                  className={
-                    "rounded-2xl p-4 flex items-center gap-3 " +
-                    (isMe
-                      ? "bg-emerald-400/15 border border-emerald-300/50"
-                      : "bg-white/5 border border-white/10")
-                  }
-                >
-                  <div className="w-8 text-right text-lg font-semibold text-white/80">
-                    {row.rank}.
-                  </div>
-                  <Avatar
-                    userId={row.id}
-                    name={row.name}
-                    version={row.avatarVersion}
-                    size={40}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">
-                      {row.name}
-                      {row.championFlag && (
-                        <span
-                          className="ml-1.5"
-                          title={row.championName ?? undefined}
-                          aria-label={
-                            row.championName
-                              ? `WM-Tipp: ${row.championName}`
-                              : undefined
-                          }
-                        >
-                          {row.championFlag}
-                        </span>
-                      )}
-                      {isMe && (
-                        <span className="ml-2 text-xs text-emerald-300">
-                          du
-                        </span>
-                      )}
+                <li key={row.id}>
+                  <Link
+                    href={`/mitspieler/${row.id}`}
+                    className={
+                      "rounded-2xl p-4 flex items-center gap-3 transition-colors " +
+                      (isMe
+                        ? "bg-emerald-400/15 border border-emerald-300/50 hover:bg-emerald-400/20"
+                        : "bg-white/5 border border-white/10 hover:bg-white/10")
+                    }
+                  >
+                    <div className="w-8 text-right text-lg font-semibold text-white/80">
+                      {row.rank}.
                     </div>
-                    <div className="text-xs text-white/55">
-                      {row.scored}/{row.tipped} Tipps gewertet
-                      {row.championPoints > 0 && (
-                        <span className="ml-2 text-emerald-300">
-                          + {row.championPoints} WM-Tipp
-                        </span>
-                      )}
+                    <Avatar
+                      userId={row.id}
+                      name={row.name}
+                      version={row.avatarVersion}
+                      size={40}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">
+                        {row.name}
+                        {row.championFlag && (
+                          <span
+                            className="ml-1.5"
+                            title={row.championName ?? undefined}
+                            aria-label={
+                              row.championName
+                                ? `WM-Tipp: ${row.championName}`
+                                : undefined
+                            }
+                          >
+                            {row.championFlag}
+                          </span>
+                        )}
+                        {isMe && (
+                          <span className="ml-2 text-xs text-emerald-300">
+                            du
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-white/55">
+                        {row.scored}/{row.tipped} Tipps gewertet
+                        {row.championPoints > 0 && (
+                          <span className="ml-2 text-emerald-300">
+                            + {row.championPoints} WM-Tipp
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-2xl font-bold tabular-nums">
-                    {row.total}
-                  </div>
+                    <div className="text-2xl font-bold tabular-nums">
+                      {row.total}
+                    </div>
+                  </Link>
                 </li>
               );
             })}
