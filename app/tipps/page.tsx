@@ -8,22 +8,30 @@ export default async function TippsPage() {
   // Middleware already gates this route; the `!` is safe.
   const userId = session!.user.id;
 
-  // Fetch matches + this user's tips in one round trip.
+  // Fetch matches + ALL tips (with user info) in one round trip. Fremde Tipps
+  // werden vor Anpfiff unten serverseitig herausgefiltert, bevor sie an den
+  // Client gehen.
   const matches = await prisma.match.findMany({
     orderBy: { kickoffAt: "asc" },
     include: {
       homeTeam: { select: { code: true, name: true } },
       awayTeam: { select: { code: true, name: true } },
       tips: {
-        where: { userId },
-        select: { homeScore: true, awayScore: true, points: true },
-        take: 1,
+        select: {
+          userId: true,
+          homeScore: true,
+          awayScore: true,
+          points: true,
+          user: {
+            select: { id: true, name: true, avatarUpdatedAt: true },
+          },
+        },
       },
     },
   });
 
   const now = Date.now();
-  const groups = groupByDay(matches, now);
+  const groups = groupByDay(matches, now, userId);
 
   return (
     <main className="flex-1 flex flex-col items-center px-5 py-8 bg-gradient-to-b from-[#0a1f44] to-[#142a5c] text-white">
@@ -72,8 +80,36 @@ export default async function TippsPage() {
             </summary>
             <div className="flex flex-col gap-3 px-4 pb-4 pt-1">
               {items.map((m) => {
-                const tip = m.tips[0] ?? null;
+                const own = m.tips.find((t) => t.userId === userId) ?? null;
+                const tip = own
+                  ? {
+                      homeScore: own.homeScore,
+                      awayScore: own.awayScore,
+                      points: own.points,
+                    }
+                  : null;
                 const locked = m.kickoffAt.getTime() <= now;
+                // Fremde Tipps erst nach Anpfiff freigeben — vorher leeres Array,
+                // damit nichts an den Client geschickt wird.
+                const otherTips = locked
+                  ? m.tips
+                      .filter((t) => t.userId !== userId)
+                      .map((t) => ({
+                        userId: t.userId,
+                        userName: t.user.name,
+                        avatarVersion:
+                          t.user.avatarUpdatedAt?.toISOString() ?? null,
+                        homeScore: t.homeScore,
+                        awayScore: t.awayScore,
+                        points: t.points,
+                      }))
+                      .sort((a, b) => {
+                        const pa = a.points ?? -1;
+                        const pb = b.points ?? -1;
+                        if (pa !== pb) return pb - pa;
+                        return a.userName.localeCompare(b.userName, "de");
+                      })
+                  : [];
                 const props: MatchCardProps = {
                   match: {
                     id: m.id,
@@ -86,6 +122,7 @@ export default async function TippsPage() {
                   },
                   tip,
                   locked,
+                  otherTips,
                 };
                 return <MatchCard key={m.id} {...props} />;
               })}
@@ -103,9 +140,11 @@ const dayFormatter = new Intl.DateTimeFormat("de-DE", {
   month: "long",
 });
 
-function groupByDay<
-  T extends { kickoffAt: Date; tips: { homeScore: number }[] },
->(items: T[], now: number) {
+function groupByDay<T extends { kickoffAt: Date; tips: { userId: string }[] }>(
+  items: T[],
+  now: number,
+  userId: string,
+) {
   const map = new Map<
     string,
     { dayLabel: string; items: T[]; openCount: number }
@@ -113,7 +152,8 @@ function groupByDay<
   for (const it of items) {
     const key = it.kickoffAt.toISOString().slice(0, 10);
     const dayLabel = dayFormatter.format(it.kickoffAt);
-    const isOpen = it.kickoffAt.getTime() > now && it.tips.length === 0;
+    const hasOwnTip = it.tips.some((t) => t.userId === userId);
+    const isOpen = it.kickoffAt.getTime() > now && !hasOwnTip;
     const existing = map.get(key);
     if (existing) {
       existing.items.push(it);

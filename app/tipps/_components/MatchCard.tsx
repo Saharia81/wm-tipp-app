@@ -1,8 +1,18 @@
 "use client";
 
 import { useActionState } from "react";
+import { Avatar } from "@/app/_components/Avatar";
 import { flagFor } from "@/lib/flags";
 import { saveTipAction, type SaveTipState } from "../actions";
+
+export type OtherTip = {
+  userId: string;
+  userName: string;
+  avatarVersion: string | null;
+  homeScore: number;
+  awayScore: number;
+  points: number | null;
+};
 
 export type MatchCardProps = {
   match: {
@@ -16,9 +26,10 @@ export type MatchCardProps = {
   };
   tip: { homeScore: number; awayScore: number; points: number | null } | null;
   locked: boolean;
+  otherTips: OtherTip[];
 };
 
-export function MatchCard({ match, tip, locked }: MatchCardProps) {
+export function MatchCard({ match, tip, locked, otherTips }: MatchCardProps) {
   const [state, formAction, pending] = useActionState<SaveTipState, FormData>(
     saveTipAction,
     undefined,
@@ -79,6 +90,37 @@ export function MatchCard({ match, tip, locked }: MatchCardProps) {
             </span>
           )}
         </p>
+      )}
+
+      {locked && otherTips.length > 0 && (
+        <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
+          <h3 className="text-xs uppercase tracking-wider text-white/60">
+            Tipps der anderen
+          </h3>
+          <ul className="flex flex-col gap-1.5">
+            {otherTips.map((o) => (
+              <li key={o.userId} className="flex items-center gap-2">
+                <Avatar
+                  userId={o.userId}
+                  name={o.userName}
+                  version={o.avatarVersion}
+                  size={28}
+                />
+                <span className="flex-1 min-w-0 text-sm truncate">
+                  {o.userName}
+                </span>
+                <span className="text-sm font-semibold tabular-nums">
+                  {o.homeScore}:{o.awayScore}
+                </span>
+                {o.points != null && (
+                  <span className="text-xs text-emerald-300 font-semibold tabular-nums">
+                    · {o.points} Pkt
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {!locked && (
