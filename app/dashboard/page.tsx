@@ -31,7 +31,7 @@ export default async function DashboardPage() {
             href="/tipps"
             className="h-12 rounded-full bg-emerald-400 text-[#0a1f44] font-semibold flex items-center justify-center"
           >
-            Tipps abgeben
+            Tipps
           </Link>
           <Link
             href="/wm-tipp"

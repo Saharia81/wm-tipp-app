@@ -49,9 +49,10 @@ export default async function TippsPage() {
           </p>
         )}
 
-        {groups.map(({ dayLabel, items, openCount }) => (
+        {groups.map(({ dayLabel, items, openCount, isFuture }) => (
           <details
             key={dayLabel}
+            open={isFuture}
             className="group rounded-2xl bg-white/[0.02] border border-white/10"
           >
             <summary className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
@@ -147,19 +148,26 @@ function groupByDay<T extends { kickoffAt: Date; tips: { userId: string }[] }>(
 ) {
   const map = new Map<
     string,
-    { dayLabel: string; items: T[]; openCount: number }
+    { dayLabel: string; items: T[]; openCount: number; isFuture: boolean }
   >();
   for (const it of items) {
     const key = it.kickoffAt.toISOString().slice(0, 10);
     const dayLabel = dayFormatter.format(it.kickoffAt);
     const hasOwnTip = it.tips.some((t) => t.userId === userId);
-    const isOpen = it.kickoffAt.getTime() > now && !hasOwnTip;
+    const isUpcoming = it.kickoffAt.getTime() > now;
+    const isOpen = isUpcoming && !hasOwnTip;
     const existing = map.get(key);
     if (existing) {
       existing.items.push(it);
       if (isOpen) existing.openCount += 1;
+      if (isUpcoming) existing.isFuture = true;
     } else {
-      map.set(key, { dayLabel, items: [it], openCount: isOpen ? 1 : 0 });
+      map.set(key, {
+        dayLabel,
+        items: [it],
+        openCount: isOpen ? 1 : 0,
+        isFuture: isUpcoming,
+      });
     }
   }
   return [...map.values()];
