@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Avatar } from "@/app/_components/Avatar";
+import { flagFor } from "@/lib/flags";
 
 type Row = {
   id: string;
@@ -11,29 +12,46 @@ type Row = {
   scored: number;
   tipped: number;
   championPoints: number;
+  championFlag: string;
+  championName: string | null;
 };
 
 export default async function TabellePage() {
   const session = await auth();
   const meId = session?.user?.id;
 
-  const users = await prisma.user.findMany({
-    select: {
-      id: true,
-      name: true,
-      // Nur den Timestamp lesen, NICHT die Bytes — Avatare lädt der Browser
-      // separat über /api/avatar/[userId].
-      avatarUpdatedAt: true,
-      tips: { select: { points: true } },
-      championTip: { select: { points: true } },
-    },
-  });
+  const [users, firstKickoffAgg] = await Promise.all([
+    prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        // Nur den Timestamp lesen, NICHT die Bytes — Avatare lädt der Browser
+        // separat über /api/avatar/[userId].
+        avatarUpdatedAt: true,
+        tips: { select: { points: true } },
+        championTip: {
+          select: {
+            points: true,
+            team: { select: { code: true, name: true } },
+          },
+        },
+      },
+    }),
+    prisma.match.aggregate({ _min: { kickoffAt: true } }),
+  ]);
+
+  // Vor Anpfiff des ersten Spiels nur den eigenen WM-Tipp zeigen,
+  // damit niemand fremde Picks abschreibt.
+  const firstKickoff = firstKickoffAgg._min.kickoffAt;
+  const picksRevealed = !!firstKickoff && firstKickoff.getTime() <= Date.now();
 
   const rows: Row[] = users
     .map((u) => {
       const tipSum = u.tips.reduce((s, t) => s + (t.points ?? 0), 0);
       const championPoints = u.championTip?.points ?? 0;
       const scored = u.tips.filter((t) => t.points !== null).length;
+      const showPick = picksRevealed || u.id === meId;
+      const team = showPick ? u.championTip?.team ?? null : null;
       return {
         id: u.id,
         name: u.name,
@@ -42,6 +60,8 @@ export default async function TabellePage() {
         scored,
         tipped: u.tips.length,
         championPoints,
+        championFlag: team ? flagFor(team.code) : "",
+        championName: team?.name ?? null,
       };
     })
     .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, "de"));
@@ -98,6 +118,19 @@ export default async function TabellePage() {
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">
                       {row.name}
+                      {row.championFlag && (
+                        <span
+                          className="ml-1.5"
+                          title={row.championName ?? undefined}
+                          aria-label={
+                            row.championName
+                              ? `WM-Tipp: ${row.championName}`
+                              : undefined
+                          }
+                        >
+                          {row.championFlag}
+                        </span>
+                      )}
                       {isMe && (
                         <span className="ml-2 text-xs text-emerald-300">
                           du
