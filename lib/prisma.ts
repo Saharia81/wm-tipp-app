@@ -11,7 +11,15 @@ function createClient() {
   if (!connectionString) {
     throw new Error("DATABASE_URL is not set");
   }
-  const adapter = new PrismaPg({ connectionString });
+  // Cap the underlying node-postgres pool. The Supabase pooler (session mode,
+  // port 5432) limits us to pool_size 15, so keep `max` low enough that a few
+  // stray pools (hot-reload, crashed dev servers) can't exhaust it. Release
+  // idle connections quickly so they don't linger on the pooler side.
+  const adapter = new PrismaPg({
+    connectionString,
+    max: 5,
+    idleTimeoutMillis: 10_000,
+  });
   return new PrismaClient({ adapter });
 }
 
