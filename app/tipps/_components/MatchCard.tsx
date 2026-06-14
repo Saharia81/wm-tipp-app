@@ -64,7 +64,7 @@ export function MatchCard({
           {match.group ? `Gruppe ${match.group} · ` : ""}
           {formatKickoff(match.kickoffAt)}
         </span>
-        {locked && (
+        {locked && !hasResult && (
           <span className="text-white/60">
             {tip ? `Tipp: ${tip.homeScore}:${tip.awayScore}` : "Kein Tipp"}
           </span>
@@ -73,25 +73,43 @@ export function MatchCard({
 
       <div className="flex items-center gap-3">
         <TeamLabel team={match.homeTeam} align="right" />
-        <div className="flex items-center gap-1">
-          <ScoreInput
-            name="homeScore"
-            value={shownHome}
-            disabled={locked || pending}
-          />
-          <span className="text-white/50">:</span>
-          <ScoreInput
-            name="awayScore"
-            value={shownAway}
-            disabled={locked || pending}
-          />
-        </div>
+        {hasResult ? (
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-xs uppercase tracking-wider text-white/60">
+              Endergebnis
+            </span>
+            <div className="flex items-center gap-1">
+              <ScoreBox value={match.homeScore} />
+              <span className="text-white/50">:</span>
+              <ScoreBox value={match.awayScore} />
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-xs uppercase tracking-wider text-white/60">
+              Dein Tipp
+            </span>
+            <div className="flex items-center gap-1">
+              <ScoreInput
+                name="homeScore"
+                value={shownHome}
+                disabled={locked || pending}
+              />
+              <span className="text-white/50">:</span>
+              <ScoreInput
+                name="awayScore"
+                value={shownAway}
+                disabled={locked || pending}
+              />
+            </div>
+          </div>
+        )}
         <TeamLabel team={match.awayTeam} align="left" />
       </div>
 
       {hasResult && (
         <p className="text-xs text-white/70">
-          Endergebnis: {match.homeScore}:{match.awayScore}
+          Dein Tipp: {tip ? `${tip.homeScore}:${tip.awayScore}` : "—"}
           {tip?.points != null && (
             <span className="ml-2 text-emerald-300 font-semibold">
               · {tip.points} Punkte
@@ -163,6 +181,14 @@ export function MatchCard({
         </>
       )}
     </form>
+  );
+}
+
+function ScoreBox({ value }: { value: number | null }) {
+  return (
+    <div className="w-12 h-11 flex items-center justify-center text-lg font-semibold rounded-lg bg-white/10 border border-white/15 text-white tabular-nums">
+      {value}
+    </div>
   );
 }
 
