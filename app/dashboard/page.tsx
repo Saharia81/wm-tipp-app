@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { logoutAction } from "./actions";
+import { ExitGuard } from "./ExitGuard";
 
 // Server component — middleware guarantees `session` is non-null on this route.
 export default async function DashboardPage() {
@@ -20,6 +21,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="flex-1 flex flex-col items-center px-5 py-10 bg-gradient-to-b from-[#0a1f44] to-[#142a5c] text-white">
+      <ExitGuard />
       <div className="w-full max-w-md flex flex-col gap-6">
         <header>
           <p className="text-sm text-white/60">Hallo</p>
