@@ -127,9 +127,39 @@ export async function syncResultsFromOpenLigaDB(): Promise<SyncStats> {
   return stats;
 }
 
-// Match an open DB row to an OpenLigaDB entry by kickoff time + team names.
-// Both conditions must hold to avoid mismatching swapped home/away or
-// reschedules that collide with another fixture.
+// Lowercase + strip diacritics so "Curaçao" == "Curacao", "Türkei" == "Turkei".
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+}
+
+// Does one OpenLigaDB side correspond to our team? True if either the name or
+// the 3-letter code matches (normalized). OpenLigaDB sometimes uses a different
+// name OR code than our seed (e.g. "Katar"/"KAT" vs our "Katar"/"QAT"), so
+// matching on either identifier covers most divergences.
+function sideMatches(
+  team: { teamName: string; shortName?: string },
+  name: string,
+  code: string,
+): boolean {
+  return (
+    normalize(team.teamName) === normalize(name) ||
+    normalize(team.shortName ?? "") === normalize(code)
+  );
+}
+
+// Match an open DB row to an OpenLigaDB entry by kickoff time + team identity.
+//
+// Within the kickoff tolerance window we pick the candidate where the MOST sides
+// (home/away) match by name or code — instead of demanding that BOTH sides match.
+// That matters because OpenLigaDB occasionally diverges on a single team's name
+// AND code at once (e.g. our "Bosnien und Herzegowina"/"BIH" vs OpenLigaDB's
+// "Bosnien-Herzegowina"/"BHG"). Requiring both sides silently skipped such games;
+// the home team still matches, so one confirmed side + an unambiguous winner is
+// enough. Simultaneous fixtures (final group round) stay safe: the wrong fixture
+// scores 0, and a genuine tie returns undefined so the admin enters it by hand.
 function findExternalMatch(
   externals: OpenLigaDBMatch[],
   dbMatch: {
@@ -139,22 +169,29 @@ function findExternalMatch(
   },
 ): OpenLigaDBMatch | undefined {
   const targetMs = dbMatch.kickoffAt.getTime();
-  const home = dbMatch.homeTeam.name.toLowerCase();
-  const away = dbMatch.awayTeam.name.toLowerCase();
-  const homeCode = dbMatch.homeTeam.code.toLowerCase();
-  const awayCode = dbMatch.awayTeam.code.toLowerCase();
+  const { homeTeam, awayTeam } = dbMatch;
 
-  return externals.find((m) => {
+  let best: OpenLigaDBMatch | undefined;
+  let bestScore = 0;
+  let tie = false;
+
+  for (const m of externals) {
     const externalMs = new Date(m.matchDateTimeUTC).getTime();
-    if (Math.abs(externalMs - targetMs) > KICKOFF_TOLERANCE_MS) return false;
+    if (Math.abs(externalMs - targetMs) > KICKOFF_TOLERANCE_MS) continue;
 
-    const t1Name = m.team1.teamName.toLowerCase();
-    const t2Name = m.team2.teamName.toLowerCase();
-    const t1Short = (m.team1.shortName ?? "").toLowerCase();
-    const t2Short = (m.team2.shortName ?? "").toLowerCase();
+    const score =
+      (sideMatches(m.team1, homeTeam.name, homeTeam.code) ? 1 : 0) +
+      (sideMatches(m.team2, awayTeam.name, awayTeam.code) ? 1 : 0);
 
-    const homeMatches = t1Name === home || t1Short === homeCode;
-    const awayMatches = t2Name === away || t2Short === awayCode;
-    return homeMatches && awayMatches;
-  });
+    if (score > bestScore) {
+      bestScore = score;
+      best = m;
+      tie = false;
+    } else if (score === bestScore && score > 0) {
+      tie = true;
+    }
+  }
+
+  // Need at least one confirmed side and a single clear winner.
+  return bestScore >= 1 && !tie ? best : undefined;
 }
