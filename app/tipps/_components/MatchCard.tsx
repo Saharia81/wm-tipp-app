@@ -27,9 +27,17 @@ export type MatchCardProps = {
   tip: { homeScore: number; awayScore: number; points: number | null } | null;
   locked: boolean;
   otherTips: OtherTip[];
+  /** Fremde Tipps offen anzeigen (laufendes Spiel) oder eingeklappt (beendet). */
+  othersDefaultOpen: boolean;
 };
 
-export function MatchCard({ match, tip, locked, otherTips }: MatchCardProps) {
+export function MatchCard({
+  match,
+  tip,
+  locked,
+  otherTips,
+  othersDefaultOpen,
+}: MatchCardProps) {
   const [state, formAction, pending] = useActionState<SaveTipState, FormData>(
     saveTipAction,
     undefined,
@@ -93,11 +101,22 @@ export function MatchCard({ match, tip, locked, otherTips }: MatchCardProps) {
       )}
 
       {locked && otherTips.length > 0 && (
-        <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
-          <h3 className="text-xs uppercase tracking-wider text-white/60">
-            Tipps der anderen
-          </h3>
-          <ul className="flex flex-col gap-1.5">
+        <details
+          open={othersDefaultOpen}
+          className="group/others flex flex-col gap-2 pt-2 border-t border-white/10"
+        >
+          <summary className="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <h3 className="text-xs uppercase tracking-wider text-white/60">
+              Tipps der anderen ({otherTips.length})
+            </h3>
+            <span
+              className="text-white/50 transition-transform duration-200 group-open/others:rotate-180"
+              aria-hidden
+            >
+              ▾
+            </span>
+          </summary>
+          <ul className="flex flex-col gap-1.5 pt-2">
             {otherTips.map((o) => (
               <li key={o.userId} className="flex items-center gap-2">
                 <Avatar
@@ -120,7 +139,7 @@ export function MatchCard({ match, tip, locked, otherTips }: MatchCardProps) {
               </li>
             ))}
           </ul>
-        </div>
+        </details>
       )}
 
       {!locked && (
