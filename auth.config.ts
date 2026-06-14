@@ -24,6 +24,15 @@ export default {
         nextUrl.pathname.startsWith(p),
       );
       if (isOnProtected) return isLoggedIn;
+
+      // Wer schon eingeloggt ist, hat auf Login/Registrierung/Startseite nichts
+      // verloren. Beim "Zurück" landete man sonst auf /login und hielt sich für
+      // ausgeloggt (obwohl die Session noch galt) → wir leiten aufs Dashboard.
+      const authEntryPaths = ["/", "/login", "/register"];
+      if (isLoggedIn && authEntryPaths.includes(nextUrl.pathname)) {
+        return Response.redirect(new URL("/dashboard", nextUrl));
+      }
+
       return true;
     },
   },
