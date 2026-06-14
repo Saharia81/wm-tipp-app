@@ -80,59 +80,94 @@ export default async function TippsPage() {
               </span>
             </summary>
             <div className="flex flex-col gap-3 px-4 pb-4 pt-1">
-              {items.map((m) => {
-                const own = m.tips.find((t) => t.userId === userId) ?? null;
-                const tip = own
-                  ? {
-                      homeScore: own.homeScore,
-                      awayScore: own.awayScore,
-                      points: own.points,
-                    }
-                  : null;
-                const locked = m.kickoffAt.getTime() <= now;
-                // Fremde Tipps erst nach Anpfiff freigeben — vorher leeres Array,
-                // damit nichts an den Client geschickt wird.
-                const otherTips = locked
-                  ? m.tips
-                      .filter((t) => t.userId !== userId)
-                      .map((t) => ({
-                        userId: t.userId,
-                        userName: t.user.name,
-                        avatarVersion:
-                          t.user.avatarUpdatedAt?.toISOString() ?? null,
-                        homeScore: t.homeScore,
-                        awayScore: t.awayScore,
-                        points: t.points,
-                      }))
-                      .sort((a, b) => {
-                        const pa = a.points ?? -1;
-                        const pb = b.points ?? -1;
-                        if (pa !== pb) return pb - pa;
-                        return a.userName.localeCompare(b.userName, "de");
-                      })
-                  : [];
-                const props: MatchCardProps = {
-                  match: {
-                    id: m.id,
-                    group: m.group,
-                    kickoffAt: m.kickoffAt.toISOString(),
-                    homeTeam: m.homeTeam,
-                    awayTeam: m.awayTeam,
-                    homeScore: m.homeScore,
-                    awayScore: m.awayScore,
-                  },
-                  tip,
-                  locked,
-                  otherTips,
-                };
-                return <MatchCard key={m.id} {...props} />;
-              })}
+              {items.map((m) => (
+                <MatchCard key={m.id} {...toCardProps(m, now, userId)} />
+              ))}
             </div>
           </details>
         ))}
       </div>
     </main>
   );
+}
+
+// Ein Spiel gilt als "beendet", sobald ein Endergebnis eingetragen ist oder der
+// Anpfiff lange genug zurückliegt (ein Spiel dauert ~2 h inkl. Pause/Nachspiel).
+// So bleibt nur das laufende und kommende Spiele offen sichtbar.
+const MATCH_DURATION_MS = 2.5 * 60 * 60 * 1000;
+function isFinished(
+  m: { kickoffAt: Date; homeScore: number | null; awayScore: number | null },
+  now: number,
+) {
+  const hasResult = m.homeScore !== null && m.awayScore !== null;
+  return hasResult || m.kickoffAt.getTime() + MATCH_DURATION_MS <= now;
+}
+
+type MatchWithTips = {
+  id: string;
+  group: string | null;
+  kickoffAt: Date;
+  homeScore: number | null;
+  awayScore: number | null;
+  homeTeam: { code: string; name: string };
+  awayTeam: { code: string; name: string };
+  tips: {
+    userId: string;
+    homeScore: number;
+    awayScore: number;
+    points: number | null;
+    user: { id: string; name: string; avatarUpdatedAt: Date | null };
+  }[];
+};
+
+function toCardProps(
+  m: MatchWithTips,
+  now: number,
+  userId: string,
+): MatchCardProps {
+  const own = m.tips.find((t) => t.userId === userId) ?? null;
+  const tip = own
+    ? { homeScore: own.homeScore, awayScore: own.awayScore, points: own.points }
+    : null;
+  const locked = m.kickoffAt.getTime() <= now;
+  // Fremde Tipps erst nach Anpfiff freigeben — vorher leeres Array,
+  // damit nichts an den Client geschickt wird.
+  const otherTips = locked
+    ? m.tips
+        .filter((t) => t.userId !== userId)
+        .map((t) => ({
+          userId: t.userId,
+          userName: t.user.name,
+          avatarVersion: t.user.avatarUpdatedAt?.toISOString() ?? null,
+          homeScore: t.homeScore,
+          awayScore: t.awayScore,
+          points: t.points,
+        }))
+        .sort((a, b) => {
+          const pa = a.points ?? -1;
+          const pb = b.points ?? -1;
+          if (pa !== pb) return pb - pa;
+          return a.userName.localeCompare(b.userName, "de");
+        })
+    : [];
+  // Fremde Tipps nur bei laufenden Spielen offen zeigen; bei beendeten Spielen
+  // eingeklappt, damit die Liste den Tag nicht zumüllt.
+  const othersDefaultOpen = locked && !isFinished(m, now);
+  return {
+    match: {
+      id: m.id,
+      group: m.group,
+      kickoffAt: m.kickoffAt.toISOString(),
+      homeTeam: m.homeTeam,
+      awayTeam: m.awayTeam,
+      homeScore: m.homeScore,
+      awayScore: m.awayScore,
+    },
+    tip,
+    locked,
+    otherTips,
+    othersDefaultOpen,
+  };
 }
 
 const dayFormatter = new Intl.DateTimeFormat("de-DE", {
