@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { applyMatchResult } from "@/lib/scoring";
+import { syncResultsFromOpenLigaDB, type SyncStats } from "@/lib/sync-results";
 import { Stage } from "@/app/generated/prisma/client";
 
 const ResultSchema = z.object({
@@ -17,6 +18,11 @@ const MatchIdSchema = z.object({ matchId: z.string().min(1) });
 
 export type ResultActionState =
   | { ok: true; tipsScored: number }
+  | { ok: false; error: string }
+  | undefined;
+
+export type SyncActionState =
+  | { ok: true; stats: SyncStats }
   | { ok: false; error: string }
   | undefined;
 
@@ -91,4 +97,27 @@ export async function clearResultAction(
   revalidatePath("/tabelle");
   revalidatePath("/wm-tipp");
   return { ok: true, tipsScored: 0 };
+}
+
+// Manually trigger the OpenLigaDB sync from the admin UI — independent of the
+// once-daily Vercel cron. Reuses the same sync logic and surfaces its stats/errors.
+export async function syncResultsAction(
+  _prev: SyncActionState,
+  _formData: FormData,
+): Promise<SyncActionState> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  let stats: SyncStats;
+  try {
+    stats = await syncResultsFromOpenLigaDB();
+  } catch (e) {
+    return { ok: false, error: `Sync fehlgeschlagen: ${(e as Error).message}` };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/tipps");
+  revalidatePath("/tabelle");
+  revalidatePath("/wm-tipp");
+  return { ok: true, stats };
 }

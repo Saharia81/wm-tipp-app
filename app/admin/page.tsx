@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ResultRow, type ResultRowProps } from "./_components/ResultRow";
+import { SyncButton } from "./_components/SyncButton";
 
 export default async function AdminPage() {
   const session = await auth();
@@ -43,6 +44,8 @@ export default async function AdminPage() {
             ← Zurück
           </Link>
         </header>
+
+        <SyncButton />
 
         <Section
           title={`Ergebnis fehlt (${pending.length})`}
