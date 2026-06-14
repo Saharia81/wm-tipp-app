@@ -52,16 +52,16 @@ export default function Home() {
 
         <div className="flex flex-col gap-3">
           <a
-            href="/register"
+            href="/login"
             className="h-12 rounded-full bg-emerald-400 text-[#0a1f44] font-semibold flex items-center justify-center"
           >
-            Registrieren
+            Anmelden
           </a>
           <a
-            href="/login"
+            href="/register"
             className="h-12 rounded-full border border-white/30 font-medium flex items-center justify-center"
           >
-            Anmelden
+            Registrieren
           </a>
         </div>
       </div>
