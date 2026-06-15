@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -23,6 +24,17 @@ export default async function DashboardPage() {
     <main className="flex-1 flex flex-col items-center px-5 py-10 bg-gradient-to-b from-[#0a1f44] to-[#142a5c] text-white">
       <ExitGuard />
       <div className="w-full max-w-md flex flex-col gap-6">
+        <div className="flex justify-center">
+          <Image
+            src="/tipp-app-logo.png"
+            alt="WM-Tipp Maskottchen"
+            width={450}
+            height={600}
+            priority
+            className="w-full max-w-xs h-auto rounded-2xl"
+          />
+        </div>
+
         <header>
           <p className="text-sm text-white/60">Hallo</p>
           <h1 className="text-2xl font-bold">{name}</h1>
