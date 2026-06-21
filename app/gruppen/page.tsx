@@ -135,7 +135,7 @@ export default async function GruppenPage() {
   return (
     <main className="flex-1 flex flex-col items-center px-5 py-8 bg-gradient-to-b from-[#0a1f44] to-[#142a5c] text-white">
       <div className="w-full max-w-md flex flex-col gap-6">
-        <header className="flex items-center justify-between">
+        <header className="sticky top-0 z-20 -mx-5 px-5 py-3 flex items-center justify-between border-b border-white/10 bg-[#0a1f44]/90 backdrop-blur">
           <h1 className="text-2xl font-bold">Gruppen</h1>
           <Link href="/dashboard" className="text-sm text-white/70">
             ← Zurück
