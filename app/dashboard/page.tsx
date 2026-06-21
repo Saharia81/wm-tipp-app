@@ -48,22 +48,28 @@ export default async function DashboardPage() {
             Tipps
           </Link>
           <Link
-            href="/wm-tipp"
-            className="h-12 rounded-full bg-white/5 border border-white/15 text-white/80 font-medium flex items-center justify-center"
-          >
-            Weltmeister tippen
-          </Link>
-          <Link
             href="/tabelle"
             className="h-12 rounded-full bg-white/5 border border-white/15 text-white/80 font-medium flex items-center justify-center"
           >
             Tabelle
           </Link>
           <Link
+            href="/gruppen"
+            className="h-12 rounded-full bg-white/5 border border-white/15 text-white/80 font-medium flex items-center justify-center"
+          >
+            Gruppenübersicht
+          </Link>
+          <Link
             href="/profil"
             className="h-12 rounded-full bg-white/5 border border-white/15 text-white/80 font-medium flex items-center justify-center"
           >
             Profil
+          </Link>
+          <Link
+            href="/wm-tipp"
+            className="h-12 rounded-full bg-white/5 border border-white/15 text-white/80 font-medium flex items-center justify-center"
+          >
+            Weltmeister tippen
           </Link>
           {isAdmin && (
             <Link
