@@ -26,9 +26,9 @@ export function SyncButton() {
       {state?.ok === true && (
         <div className="flex flex-col gap-1">
           <p className="text-xs text-sky-200">
-            {state.stats.checked} geprüft · {state.stats.updated} eingetragen ·{" "}
-            {state.stats.scored} Tipps neu bewertet · {state.stats.skipped}{" "}
-            übersprungen
+            {state.stats.created} neu angelegt · {state.stats.checked} geprüft ·{" "}
+            {state.stats.updated} eingetragen · {state.stats.scored} Tipps neu
+            bewertet · {state.stats.skipped} übersprungen
           </p>
           {state.stats.updated === 0 && state.stats.checked > 0 && (
             <p className="text-xs text-white/60">

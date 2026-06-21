@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ResultRow, type ResultRowProps } from "./_components/ResultRow";
 import { SyncButton } from "./_components/SyncButton";
+import { CreateMatchForm } from "./_components/CreateMatchForm";
 
 export default async function AdminPage() {
   const session = await auth();
@@ -12,14 +13,19 @@ export default async function AdminPage() {
     redirect("/dashboard");
   }
 
-  const matches = await prisma.match.findMany({
-    orderBy: { kickoffAt: "asc" },
-    include: {
-      homeTeam: { select: { code: true, name: true } },
-      awayTeam: { select: { code: true, name: true } },
-      _count: { select: { tips: true } },
-    },
-  });
+  const [matches, teams] = await Promise.all([
+    prisma.match.findMany({
+      orderBy: { kickoffAt: "asc" },
+      include: {
+        homeTeam: { select: { code: true, name: true } },
+        awayTeam: { select: { code: true, name: true } },
+        _count: { select: { tips: true } },
+      },
+    }),
+    prisma.team.findMany({
+      select: { id: true, code: true, name: true, group: true },
+    }),
+  ]);
 
   // Split for the admin workflow: matches that NEED a result first, then already-entered
   // (so they can be corrected), then upcoming. Mixing past+future under one "open"
@@ -46,6 +52,8 @@ export default async function AdminPage() {
         </header>
 
         <SyncButton />
+
+        <CreateMatchForm teams={teams} />
 
         <Section
           title={`Ergebnis fehlt (${pending.length})`}
@@ -99,6 +107,7 @@ function Section({
 
 function toRowProps(m: {
   id: string;
+  stage: ResultRowProps["match"]["stage"];
   group: string | null;
   kickoffAt: Date;
   homeTeam: { code: string; name: string };
@@ -109,6 +118,7 @@ function toRowProps(m: {
 }): ResultRowProps["match"] {
   return {
     id: m.id,
+    stage: m.stage,
     group: m.group,
     kickoffAt: m.kickoffAt.toISOString(),
     homeTeam: m.homeTeam,

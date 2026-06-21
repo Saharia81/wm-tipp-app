@@ -11,6 +11,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { applyMatchResult } from "@/lib/scoring";
+import { Stage } from "@/app/generated/prisma/client";
 
 const OPENLIGADB_BASE = "https://api.openligadb.de";
 
@@ -19,6 +20,8 @@ type OpenLigaDBMatch = {
   matchID: number;
   matchDateTimeUTC: string;
   matchIsFinished: boolean;
+  // The round name, e.g. "Achtelfinale", "Finale", or "1. Spieltag" for groups.
+  group?: { groupName?: string };
   team1: { teamName: string; shortName?: string };
   team2: { teamName: string; shortName?: string };
   matchResults: Array<{
@@ -30,6 +33,7 @@ type OpenLigaDBMatch = {
 
 export type SyncStats = {
   checked: number;
+  created: number;
   updated: number;
   scored: number;
   skipped: number;
@@ -50,28 +54,20 @@ const FINAL_RESULT_TYPE_ID = 2;
 
 export async function syncResultsFromOpenLigaDB(): Promise<SyncStats> {
   const league = process.env.OPENLIGADB_LEAGUE ?? "wm2026";
+  // Auto-creating KO fixtures from the feed is on by default; set
+  // OPENLIGADB_AUTOCREATE=0 to fall back to manual creation in the admin UI.
+  const autoCreate = process.env.OPENLIGADB_AUTOCREATE !== "0";
   const stats: SyncStats = {
     checked: 0,
+    created: 0,
     updated: 0,
     scored: 0,
     skipped: 0,
     errors: [],
   };
 
-  // Only matches whose kickoff already passed and have no result yet.
-  // Anything future is irrelevant; anything already scored is idempotently skipped.
-  const openMatches = await prisma.match.findMany({
-    where: { resultEnteredAt: null, kickoffAt: { lte: new Date() } },
-    select: {
-      id: true,
-      kickoffAt: true,
-      homeTeam: { select: { name: true, code: true } },
-      awayTeam: { select: { name: true, code: true } },
-    },
-  });
-  stats.checked = openMatches.length;
-  if (openMatches.length === 0) return stats;
-
+  // Fetch the full feed once. We need it both to create missing KO fixtures and
+  // to score finished matches, so this runs even when no match is awaiting a result.
   let externalMatches: OpenLigaDBMatch[];
   try {
     const res = await fetch(`${OPENLIGADB_BASE}/getmatchdata/${league}`, {
@@ -87,6 +83,30 @@ export async function syncResultsFromOpenLigaDB(): Promise<SyncStats> {
     stats.errors.push(`OpenLigaDB fetch failed: ${(e as Error).message}`);
     return stats;
   }
+
+  // Step 1: create KO fixtures the feed knows about but we don't yet. Done before
+  // the result loop so a fixture that's already finished can be scored in the same run.
+  if (autoCreate) {
+    try {
+      stats.created = await createMissingMatches(externalMatches);
+    } catch (e) {
+      stats.errors.push(`Auto-create failed: ${(e as Error).message}`);
+    }
+  }
+
+  // Step 2: score finished matches. Only matches whose kickoff already passed and
+  // have no result yet. Anything future is irrelevant; anything already scored is
+  // idempotently skipped.
+  const openMatches = await prisma.match.findMany({
+    where: { resultEnteredAt: null, kickoffAt: { lte: new Date() } },
+    select: {
+      id: true,
+      kickoffAt: true,
+      homeTeam: { select: { name: true, code: true } },
+      awayTeam: { select: { name: true, code: true } },
+    },
+  });
+  stats.checked = openMatches.length;
 
   for (const dbMatch of openMatches) {
     const external = findExternalMatch(externalMatches, dbMatch);
@@ -125,6 +145,70 @@ export async function syncResultsFromOpenLigaDB(): Promise<SyncStats> {
   }
 
   return stats;
+}
+
+// Map an OpenLigaDB round name to our Stage enum. Returns null for group-stage
+// rounds ("1. Spieltag", "Gruppe A", …) and anything we don't recognise, so
+// those are left alone. Order matters: the longer round names ("Viertelfinale",
+// "Halbfinale") contain "finale" as a substring, so they're checked first.
+function stageFromGroupName(name: string | undefined): Stage | null {
+  if (!name) return null;
+  const n = normalize(name);
+  if (n.includes("sechzehntel")) return Stage.ROUND_OF_32;
+  if (n.includes("achtel")) return Stage.ROUND_OF_16;
+  if (n.includes("viertel")) return Stage.QUARTER_FINAL;
+  if (n.includes("halbfinale") || n.includes("halb")) return Stage.SEMI_FINAL;
+  if (n.includes("platz")) return Stage.THIRD_PLACE; // "Spiel um Platz 3"
+  if (n.includes("finale")) return Stage.FINAL;
+  return null;
+}
+
+// Create KO matches that exist in the feed but not in our DB. Strict on purpose:
+// we only insert when BOTH teams map to a known team and the round name maps to a
+// KO stage — a feed entry still showing placeholders ("Sieger Gruppe A") simply
+// doesn't map and is skipped until the real teams appear. Group matches are never
+// created here (they're seeded). Returns how many were inserted.
+async function createMissingMatches(
+  externals: OpenLigaDBMatch[],
+): Promise<number> {
+  const teams = await prisma.team.findMany({
+    select: { id: true, code: true, name: true },
+  });
+  // Existing pairings (either orientation) so we never insert a duplicate.
+  const existing = await prisma.match.findMany({
+    select: { homeTeamId: true, awayTeamId: true },
+  });
+  const seen = new Set(
+    existing.flatMap((m) => [
+      `${m.homeTeamId}:${m.awayTeamId}`,
+      `${m.awayTeamId}:${m.homeTeamId}`,
+    ]),
+  );
+
+  let created = 0;
+  for (const ext of externals) {
+    const stage = stageFromGroupName(ext.group?.groupName);
+    if (!stage) continue; // group stage or unknown round → leave alone
+
+    const home = teams.find((t) => sideMatches(ext.team1, t.name, t.code));
+    const away = teams.find((t) => sideMatches(ext.team2, t.name, t.code));
+    if (!home || !away || home.id === away.id) continue; // placeholder/unknown
+
+    const kickoffAt = new Date(ext.matchDateTimeUTC);
+    if (Number.isNaN(kickoffAt.getTime())) continue;
+
+    if (seen.has(`${home.id}:${away.id}`)) continue;
+
+    await prisma.match.create({
+      data: { stage, kickoffAt, homeTeamId: home.id, awayTeamId: away.id },
+    });
+    // Guard against duplicate rows from repeated entries within the same feed.
+    seen.add(`${home.id}:${away.id}`);
+    seen.add(`${away.id}:${home.id}`);
+    created++;
+  }
+
+  return created;
 }
 
 // Lowercase + strip diacritics so "Curaçao" == "Curacao", "Türkei" == "Turkei".
