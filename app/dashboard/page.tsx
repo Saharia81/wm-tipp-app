@@ -54,6 +54,12 @@ export default async function DashboardPage() {
             Tabelle
           </Link>
           <Link
+            href="/gruppen"
+            className="h-12 rounded-full bg-white/5 border border-white/15 text-white/80 font-medium flex items-center justify-center"
+          >
+            Gruppenübersicht
+          </Link>
+          <Link
             href="/profil"
             className="h-12 rounded-full bg-white/5 border border-white/15 text-white/80 font-medium flex items-center justify-center"
           >
