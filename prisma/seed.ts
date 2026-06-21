@@ -2,7 +2,9 @@
 //
 // Knockout matches (R32, R16, QF, SF, 3rd place, Final) are NOT seeded — the Match
 // schema requires non-null home/away team IDs, and knockout pairings aren't known
-// until the group stage resolves. Add them as the bracket fills in.
+// until the group stage resolves. They're filled in automatically once the bracket
+// is set: lib/sync-results.ts creates them from the OpenLigaDB feed, and the admin
+// can add/remove them by hand (app/admin "K.-o.-Spiel anlegen") as a fallback.
 //
 // Source: FIFA WM 2026 draw on 2025-12-05, schedule per Wikipedia group articles.
 // Run with: npm run db:seed

@@ -2,15 +2,19 @@
 
 import { useActionState } from "react";
 import { flagFor } from "@/lib/flags";
+import { stageLabel, type Stage } from "@/lib/stages";
 import {
   saveResultAction,
   clearResultAction,
+  deleteMatchAction,
   type ResultActionState,
+  type CreateMatchState,
 } from "../actions";
 
 export type ResultRowProps = {
   match: {
     id: string;
+    stage: Stage;
     group: string | null;
     kickoffAt: string;
     homeTeam: { code: string; name: string };
@@ -30,8 +34,15 @@ export function ResultRow({ match }: ResultRowProps) {
     ResultActionState,
     FormData
   >(clearResultAction, undefined);
+  const [deleteState, deleteAction, deleting] = useActionState<
+    CreateMatchState,
+    FormData
+  >(deleteMatchAction, undefined);
 
   const hasResult = match.homeScore !== null && match.awayScore !== null;
+  // Group matches are seeded and protected; only KO matches can be deleted.
+  const canDelete = match.stage !== "GROUP";
+  const busy = saving || clearing || deleting;
   // Show the latest action's error/success; ignore the other.
   const lastState =
     saveState && clearState
@@ -45,8 +56,7 @@ export function ResultRow({ match }: ResultRowProps) {
     <div className="rounded-2xl bg-white/5 border border-white/10 p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between text-xs text-white/60">
         <span>
-          {match.group ? `Gruppe ${match.group} · ` : ""}
-          {formatKickoff(match.kickoffAt)}
+          {stageLabel(match.stage, match.group)} · {formatKickoff(match.kickoffAt)}
         </span>
         <span>
           {match.tipCount} {match.tipCount === 1 ? "Tipp" : "Tipps"}
@@ -62,13 +72,13 @@ export function ResultRow({ match }: ResultRowProps) {
             <ScoreInput
               name="homeScore"
               defaultValue={match.homeScore ?? ""}
-              disabled={saving || clearing}
+              disabled={busy}
             />
             <span className="text-white/50">:</span>
             <ScoreInput
               name="awayScore"
               defaultValue={match.awayScore ?? ""}
-              disabled={saving || clearing}
+              disabled={busy}
             />
           </div>
           <TeamLabel team={match.awayTeam} align="left" />
@@ -92,7 +102,7 @@ export function ResultRow({ match }: ResultRowProps) {
           <input type="hidden" name="matchId" value={match.id} />
           <button
             type="submit"
-            disabled={saving || clearing}
+            disabled={busy}
             className="w-full h-9 rounded-full border border-white/15 text-white/70 text-sm disabled:opacity-60"
           >
             {clearing ? "Lösche…" : "Ergebnis löschen"}
@@ -109,6 +119,24 @@ export function ResultRow({ match }: ResultRowProps) {
       {lastState?.ok === false && (
         <p className="text-xs text-red-300 bg-red-500/10 border border-red-400/30 rounded-lg px-3 py-2">
           {lastState.error}
+        </p>
+      )}
+
+      {canDelete && (
+        <form action={deleteAction}>
+          <input type="hidden" name="matchId" value={match.id} />
+          <button
+            type="submit"
+            disabled={busy}
+            className="w-full h-9 rounded-full border border-red-400/30 text-red-300 text-sm disabled:opacity-60"
+          >
+            {deleting ? "Lösche…" : "Spiel löschen"}
+          </button>
+        </form>
+      )}
+      {deleteState?.ok === false && (
+        <p className="text-xs text-red-300 bg-red-500/10 border border-red-400/30 rounded-lg px-3 py-2">
+          {deleteState.error}
         </p>
       )}
     </div>

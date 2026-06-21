@@ -105,6 +105,7 @@ function isFinished(
 
 type MatchWithTips = {
   id: string;
+  stage: MatchCardProps["match"]["stage"];
   group: string | null;
   kickoffAt: Date;
   homeScore: number | null;
@@ -156,6 +157,7 @@ function toCardProps(
   return {
     match: {
       id: m.id,
+      stage: m.stage,
       group: m.group,
       kickoffAt: m.kickoffAt.toISOString(),
       homeTeam: m.homeTeam,

@@ -16,8 +16,23 @@ const ResultSchema = z.object({
 
 const MatchIdSchema = z.object({ matchId: z.string().min(1) });
 
+// `kickoffLocal` is the raw value of a <input type="datetime-local"> — local
+// wall-clock without a zone, e.g. "2026-07-04T22:00". We interpret it as German
+// time below (the whole tournament runs in CEST, +02:00).
+const CreateMatchSchema = z.object({
+  stage: z.nativeEnum(Stage),
+  homeTeamId: z.string().min(1),
+  awayTeamId: z.string().min(1),
+  kickoffLocal: z.string().min(1),
+});
+
 export type ResultActionState =
   | { ok: true; tipsScored: number }
+  | { ok: false; error: string }
+  | undefined;
+
+export type CreateMatchState =
+  | { ok: true }
   | { ok: false; error: string }
   | undefined;
 
@@ -97,6 +112,95 @@ export async function clearResultAction(
   revalidatePath("/tabelle");
   revalidatePath("/wm-tipp");
   return { ok: true, tipsScored: 0 };
+}
+
+// Create a knockout match by hand. Group matches are seeded, so this is for the
+// KO bracket once the pairings are known — and as a fallback if the auto-sync
+// can't create them (missing/odd OpenLigaDB data). New matches show up to tip
+// immediately because /tipps simply lists every match in the DB.
+export async function createMatchAction(
+  _prev: CreateMatchState,
+  formData: FormData,
+): Promise<CreateMatchState> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const parsed = CreateMatchSchema.safeParse({
+    stage: formData.get("stage"),
+    homeTeamId: formData.get("homeTeamId"),
+    awayTeamId: formData.get("awayTeamId"),
+    kickoffLocal: formData.get("kickoffLocal"),
+  });
+  if (!parsed.success) return { ok: false, error: "Ungültige Eingabe." };
+  const { stage, homeTeamId, awayTeamId, kickoffLocal } = parsed.data;
+
+  if (stage === Stage.GROUP)
+    return { ok: false, error: "Gruppenspiele sind bereits angelegt." };
+  if (homeTeamId === awayTeamId)
+    return { ok: false, error: "Bitte zwei verschiedene Teams wählen." };
+
+  // datetime-local has no zone; pin it to CEST so the stored instant is correct.
+  const kickoffAt = new Date(`${kickoffLocal}:00+02:00`);
+  if (Number.isNaN(kickoffAt.getTime()))
+    return { ok: false, error: "Ungültiger Anpfiff-Zeitpunkt." };
+
+  const teamCount = await prisma.team.count({
+    where: { id: { in: [homeTeamId, awayTeamId] } },
+  });
+  if (teamCount !== 2)
+    return { ok: false, error: "Team nicht gefunden." };
+
+  // Same pairing (either orientation) already exists — avoid a duplicate fixture.
+  const existing = await prisma.match.findFirst({
+    where: {
+      OR: [
+        { homeTeamId, awayTeamId },
+        { homeTeamId: awayTeamId, awayTeamId: homeTeamId },
+      ],
+    },
+    select: { id: true },
+  });
+  if (existing)
+    return { ok: false, error: "Diese Paarung gibt es schon." };
+
+  await prisma.match.create({
+    data: { stage, kickoffAt, homeTeamId, awayTeamId },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/tipps");
+  revalidatePath("/tabelle");
+  revalidatePath("/wm-tipp");
+  return { ok: true };
+}
+
+// Delete a knockout match (and its tips, via cascade). Group matches are
+// protected — they're part of the seed and shouldn't be removed from the UI.
+export async function deleteMatchAction(
+  _prev: CreateMatchState,
+  formData: FormData,
+): Promise<CreateMatchState> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const parsed = MatchIdSchema.safeParse({ matchId: formData.get("matchId") });
+  if (!parsed.success) return { ok: false, error: "Ungültige Anfrage." };
+
+  const match = await prisma.match.findUnique({
+    where: { id: parsed.data.matchId },
+    select: { stage: true },
+  });
+  if (!match) return { ok: false, error: "Spiel nicht gefunden." };
+  if (match.stage === Stage.GROUP)
+    return { ok: false, error: "Gruppenspiele können nicht gelöscht werden." };
+
+  await prisma.match.delete({ where: { id: parsed.data.matchId } });
+
+  revalidatePath("/admin");
+  revalidatePath("/tipps");
+  revalidatePath("/tabelle");
+  revalidatePath("/wm-tipp");
+  return { ok: true };
 }
 
 // Manually trigger the OpenLigaDB sync from the admin UI — independent of the

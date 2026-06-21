@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Avatar } from "@/app/_components/Avatar";
 import { flagFor } from "@/lib/flags";
+import { stageLabel, type Stage } from "@/lib/stages";
 import { saveTipAction, type SaveTipState } from "../actions";
 
 export type OtherTip = {
@@ -17,6 +18,7 @@ export type OtherTip = {
 export type MatchCardProps = {
   match: {
     id: string;
+    stage: Stage;
     group: string | null;
     kickoffAt: string; // ISO string (Date can't cross the server→client boundary)
     homeTeam: { code: string; name: string };
@@ -61,8 +63,7 @@ export function MatchCard({
 
       <div className="flex items-center justify-between text-xs text-white/60">
         <span>
-          {match.group ? `Gruppe ${match.group} · ` : ""}
-          {formatKickoff(match.kickoffAt)}
+          {stageLabel(match.stage, match.group)} · {formatKickoff(match.kickoffAt)}
         </span>
         {locked && !hasResult && (
           <span className="text-white/60">
