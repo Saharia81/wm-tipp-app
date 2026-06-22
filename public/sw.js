@@ -15,8 +15,11 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "WM-Tipp 2026";
   const options = {
     body: payload.body || "Vergiss nicht zu tippen!",
+    // Großes Symbol (rechts in der Meldung): das bunte Maskottchen.
     icon: "/icon.png",
-    badge: "/icon.png",
+    // Kleines Statusleisten-Symbol: muss einfarbig + transparent sein, sonst
+    // zeigt Android nur ein weißes Viereck. Daher ein Fußball-Silhouetten-PNG.
+    badge: "/badge.png",
     data: { url: payload.url || "/tipps" },
     requireInteraction: false,
   };
