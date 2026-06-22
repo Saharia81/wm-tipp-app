@@ -1,7 +1,8 @@
 // HTTP entry point for the OpenLigaDB result sync. Called by Vercel Cron
-// every 15 minutes (see vercel.json). Auth is via a shared bearer token in
-// CRON_SECRET — Vercel injects `Authorization: Bearer ${CRON_SECRET}` on cron
-// invocations, so this same check works locally too:
+// once a day (see vercel.json — 08:00 UTC; Vercel Hobby only allows daily crons).
+// Auth is via a shared bearer token in CRON_SECRET — Vercel injects
+// `Authorization: Bearer ${CRON_SECRET}` on cron invocations, so this same check
+// works locally too:
 //
 //   curl -H "Authorization: Bearer <secret>" http://localhost:3000/api/cron/sync-results
 

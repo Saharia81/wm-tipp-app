@@ -26,6 +26,24 @@ model User {
 
   tips         Tip[]
   championTip  ChampionTip?
+  pushSubscriptions PushSubscription[]
+}
+
+// Web-Push-Abo eines Geräts/Browsers. Ein User kann mehrere haben (Handy + Laptop).
+// Die tägliche Tipp-Erinnerung (siehe lib/send-reminders.ts) sendet an alle Abos.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  // Endpoint des Push-Dienstes — identifiziert das Gerät eindeutig.
+  endpoint  String   @unique
+  // Verschlüsselungs-Keys aus subscription.keys (Browser-PushManager).
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Team {

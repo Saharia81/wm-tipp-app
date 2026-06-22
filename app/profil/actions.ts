@@ -51,6 +51,61 @@ export async function updateNameAction(
   return { success: true };
 }
 
+// Web-Push-Abo eines Browsers/Geräts speichern bzw. löschen.
+// Aufgerufen aus PushToggle (Client) nach pushManager.subscribe()/unsubscribe().
+
+// Form der vom Browser gelieferten PushSubscription (nur die Felder, die wir brauchen).
+const PushSubscriptionSchema = z.object({
+  endpoint: z.string().url(),
+  keys: z.object({
+    p256dh: z.string().min(1),
+    auth: z.string().min(1),
+  }),
+});
+
+export type PushSubscriptionInput = z.infer<typeof PushSubscriptionSchema>;
+
+export async function savePushSubscriptionAction(
+  sub: unknown,
+): Promise<{ error?: string; success?: boolean }> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return { error: "Nicht angemeldet." };
+  }
+
+  const parsed = PushSubscriptionSchema.safeParse(sub);
+  if (!parsed.success) {
+    return { error: "Ungültiges Push-Abo." };
+  }
+
+  const { endpoint, keys } = parsed.data;
+  // Upsert auf den eindeutigen endpoint: subscribed sich dasselbe Gerät neu,
+  // werden nur die Keys aktualisiert (und ggf. der Besitzer übernommen).
+  await prisma.pushSubscription.upsert({
+    where: { endpoint },
+    update: { userId, p256dh: keys.p256dh, auth: keys.auth },
+    create: { userId, endpoint, p256dh: keys.p256dh, auth: keys.auth },
+  });
+
+  return { success: true };
+}
+
+export async function deletePushSubscriptionAction(
+  endpoint: string,
+): Promise<{ error?: string; success?: boolean }> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return { error: "Nicht angemeldet." };
+  }
+
+  // Nur eigene Abos löschen (endpoint ist global eindeutig, userId schützt zusätzlich).
+  await prisma.pushSubscription.deleteMany({ where: { endpoint, userId } });
+
+  return { success: true };
+}
+
 export async function uploadAvatarAction(
   _prev: AvatarState,
   formData: FormData,

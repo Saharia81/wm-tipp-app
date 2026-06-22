@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ProfilForm } from "./_components/ProfilForm";
+import { PushToggle } from "./_components/PushToggle";
 
 export default async function ProfilPage() {
   const session = await auth();
@@ -33,6 +34,8 @@ export default async function ProfilPage() {
           </p>
           <p className="mt-1 text-white/90">{user.email}</p>
         </section>
+
+        <PushToggle />
 
         <ProfilForm
           currentName={user.name}
