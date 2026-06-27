@@ -5,7 +5,9 @@ export default function Loading() {
       <div className="w-full max-w-md flex flex-col gap-6">
         <header className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Weltmeister</h1>
-          <span className="text-sm text-white/70">← Zurück</span>
+          <span className="text-sm font-medium px-3 py-1.5 rounded-full bg-white/10 border border-white/15">
+            ← Zurück
+          </span>
         </header>
 
         <div className="rounded-2xl bg-white/5 border border-white/10 p-4 flex flex-col gap-2 animate-pulse">

@@ -7,7 +7,9 @@ export default function Loading() {
       <div className="w-full max-w-md flex flex-col gap-6">
         <header className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Tipps</h1>
-          <span className="text-sm text-white/70">← Zurück</span>
+          <span className="text-sm font-medium px-3 py-1.5 rounded-full bg-white/10 border border-white/15">
+            ← Zurück
+          </span>
         </header>
 
         {Array.from({ length: 2 }).map((_, g) => (
