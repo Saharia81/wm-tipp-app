@@ -11,10 +11,10 @@ function createClient() {
   if (!connectionString) {
     throw new Error("DATABASE_URL is not set");
   }
-  // Cap the underlying node-postgres pool. The Supabase pooler (session mode,
-  // port 5432) limits us to pool_size 15, so keep `max` low enough that a few
-  // stray pools (hot-reload, crashed dev servers) can't exhaust it. Release
-  // idle connections quickly so they don't linger on the pooler side.
+  // DATABASE_URL points at Supabase's transaction-mode pooler (port 6543), which
+  // tolerates far more concurrent clients than the session pooler (port 5432,
+  // used only for migrations — see DIRECT_URL). Still cap `max` and release idle
+  // connections quickly so stray pools (hot-reload, crashed dev servers) stay cheap.
   const adapter = new PrismaPg({
     connectionString,
     max: 5,
