@@ -40,6 +40,17 @@ export const STAGE_LABELS: Record<Stage, string> = {
   FINAL: "Finale",
 };
 
+// Short labels for the stage stepper, where the full names wouldn't fit.
+export const STAGE_SHORT_LABELS: Record<Stage, string> = {
+  GROUP: "Gr",
+  ROUND_OF_32: "16",
+  ROUND_OF_16: "8",
+  QUARTER_FINAL: "QF",
+  SEMI_FINAL: "HF",
+  THIRD_PLACE: "3.",
+  FINAL: "Fi",
+};
+
 // "Gruppe A" for group matches, the round name otherwise. Used wherever a match
 // header previously printed only `Gruppe ${group}`.
 export function stageLabel(stage: Stage, group: string | null): string {

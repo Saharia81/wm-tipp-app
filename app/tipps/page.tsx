@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { STAGES, STAGE_LABELS, type Stage } from "@/lib/stages";
 import { MatchCard, type MatchCardProps } from "./_components/MatchCard";
+import { ScrollToTarget } from "./_components/ScrollToTarget";
+import { StageStepper, type StageStatus } from "./_components/StageStepper";
 
 export default async function TippsPage() {
   const session = await auth();
@@ -31,7 +34,9 @@ export default async function TippsPage() {
   });
 
   const now = Date.now();
-  const groups = groupByDay(matches, now, userId);
+  const stageGroups = groupByStage(matches);
+  const stageStatuses = stageStatusesOf(matches);
+  const targetDayKey = findTargetDayKey(matches, now);
 
   return (
     <main className="flex-1 flex flex-col items-center px-5 py-8 bg-gradient-to-b from-[#0a1f44] to-[#142a5c] text-white">
@@ -46,48 +51,66 @@ export default async function TippsPage() {
           </Link>
         </header>
 
+        {matches.length > 0 && <StageStepper statuses={stageStatuses} />}
+        {matches.length > 0 && <ScrollToTarget />}
+
         {matches.length === 0 && (
           <p className="text-white/70 text-sm">
             Noch keine Spiele eingespeist. Frag den Admin.
           </p>
         )}
 
-        {groups.map(({ dayLabel, items, openCount, isFuture }) => (
-          <details
-            key={dayLabel}
-            open={isFuture}
-            className="group rounded-2xl bg-white/[0.02] border border-white/10"
-          >
-            <summary className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              <div className="flex flex-col gap-1 min-w-0">
-                <h2 className="text-sm uppercase tracking-[0.2em] text-white/70">
-                  {dayLabel}
-                </h2>
-                <span className="text-xs text-white/50">
-                  {items.length} {items.length === 1 ? "Spiel" : "Spiele"}
-                  {openCount > 0 && (
-                    <>
-                      {" · "}
-                      <span className="text-emerald-300 font-medium">
-                        {openCount} offen
+        {stageGroups.map(({ stage, items: stageItems }) => (
+          <section key={stage} className="flex flex-col gap-3">
+            <h2 className="flex items-center gap-2 text-base font-bold">
+              <span className="h-4 w-1 rounded-full bg-emerald-400" aria-hidden />
+              {STAGE_LABELS[stage]}
+            </h2>
+
+            {groupByDay(stageItems, now, userId).map(
+              ({ dayKey, dayLabel, items, openCount, isFuture }) => {
+                const isTarget = dayKey === targetDayKey;
+                return (
+                <details
+                  key={dayLabel}
+                  open={isFuture || isTarget}
+                  data-tipps-target={isTarget ? "true" : undefined}
+                  className="group scroll-mt-24 rounded-2xl bg-white/[0.02] border border-white/10"
+                >
+                  <summary className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <h3 className="text-sm uppercase tracking-[0.2em] text-white/70">
+                        {dayLabel}
+                      </h3>
+                      <span className="text-xs text-white/50">
+                        {items.length} {items.length === 1 ? "Spiel" : "Spiele"}
+                        {openCount > 0 && (
+                          <>
+                            {" · "}
+                            <span className="text-emerald-300 font-medium">
+                              {openCount} offen
+                            </span>
+                          </>
+                        )}
                       </span>
-                    </>
-                  )}
-                </span>
-              </div>
-              <span
-                className="text-white/50 transition-transform duration-200 group-open:rotate-180"
-                aria-hidden
-              >
-                ▾
-              </span>
-            </summary>
-            <div className="flex flex-col gap-3 px-4 pb-4 pt-1">
-              {items.map((m) => (
-                <MatchCard key={m.id} {...toCardProps(m, now, userId)} />
-              ))}
-            </div>
-          </details>
+                    </div>
+                    <span
+                      className="text-white/50 transition-transform duration-200 group-open:rotate-180"
+                      aria-hidden
+                    >
+                      ▾
+                    </span>
+                  </summary>
+                  <div className="flex flex-col gap-3 px-4 pb-4 pt-1">
+                    {items.map((m) => (
+                      <MatchCard key={m.id} {...toCardProps(m, now, userId)} />
+                    ))}
+                  </div>
+                </details>
+                );
+              },
+            )}
+          </section>
         ))}
       </div>
     </main>
@@ -175,6 +198,41 @@ function toCardProps(
   };
 }
 
+// Top-level grouping by tournament stage, in bracket order (Gruppe → ... →
+// Finale). Stages without any match yet (KO pairing not decided) are
+// omitted here — the StageStepper still shows them as "upcoming".
+function groupByStage<T extends { stage: Stage }>(items: T[]) {
+  const map = new Map<Stage, T[]>();
+  for (const it of items) {
+    const list = map.get(it.stage);
+    if (list) list.push(it);
+    else map.set(it.stage, [it]);
+  }
+  return STAGES.filter((stage) => map.has(stage)).map((stage) => ({
+    stage,
+    items: map.get(stage)!,
+  }));
+}
+
+function stageStatusesOf(
+  matches: { stage: Stage; homeScore: number | null; awayScore: number | null }[],
+): Record<Stage, StageStatus> {
+  const statuses = {} as Record<Stage, StageStatus>;
+  for (const stage of STAGES) {
+    const stageMatches = matches.filter((m) => m.stage === stage);
+    if (stageMatches.length === 0) {
+      statuses[stage] = "upcoming";
+    } else if (
+      stageMatches.every((m) => m.homeScore !== null && m.awayScore !== null)
+    ) {
+      statuses[stage] = "done";
+    } else {
+      statuses[stage] = "current";
+    }
+  }
+  return statuses;
+}
+
 const dayFormatter = new Intl.DateTimeFormat("de-DE", {
   weekday: "long",
   day: "2-digit",
@@ -188,7 +246,13 @@ function groupByDay<T extends { kickoffAt: Date; tips: { userId: string }[] }>(
 ) {
   const map = new Map<
     string,
-    { dayLabel: string; items: T[]; openCount: number; isFuture: boolean }
+    {
+      dayKey: string;
+      dayLabel: string;
+      items: T[];
+      openCount: number;
+      isFuture: boolean;
+    }
   >();
   for (const it of items) {
     const key = it.kickoffAt.toISOString().slice(0, 10);
@@ -203,6 +267,7 @@ function groupByDay<T extends { kickoffAt: Date; tips: { userId: string }[] }>(
       if (isUpcoming) existing.isFuture = true;
     } else {
       map.set(key, {
+        dayKey: key,
         dayLabel,
         items: [it],
         openCount: isOpen ? 1 : 0,
@@ -211,4 +276,20 @@ function groupByDay<T extends { kickoffAt: Date; tips: { userId: string }[] }>(
     }
   }
   return [...map.values()];
+}
+
+// Ermittelt den Spieltag, zu dem beim Öffnen der Seite direkt gesprungen
+// werden soll: heutiges Datum, sonst der letzte vergangene Spieltag (oder,
+// falls das Turnier noch nicht begonnen hat, der nächste kommende).
+function findTargetDayKey(
+  matches: { kickoffAt: Date }[],
+  now: number,
+): string | null {
+  if (matches.length === 0) return null;
+  const todayKey = new Date(now).toISOString().slice(0, 10);
+  const keys = [...new Set(matches.map((m) => m.kickoffAt.toISOString().slice(0, 10)))].sort();
+  if (keys.includes(todayKey)) return todayKey;
+  const past = keys.filter((k) => k < todayKey);
+  if (past.length > 0) return past[past.length - 1];
+  return keys[0];
 }
