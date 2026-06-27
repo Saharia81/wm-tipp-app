@@ -41,17 +41,23 @@ export default async function TippsPage() {
   return (
     <main className="flex-1 flex flex-col items-center px-5 py-8 bg-gradient-to-b from-[#0a1f44] to-[#142a5c] text-white">
       <div className="w-full max-w-md flex flex-col gap-6">
-        <header className="sticky top-0 z-20 -mx-5 px-5 py-3 flex items-center justify-between border-b border-white/10 bg-[#0a1f44]/90 backdrop-blur">
-          <h1 className="text-2xl font-bold">Tipps</h1>
-          <Link
-            href="/dashboard"
-            className="text-sm font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition-colors"
-          >
-            ← Zurück
-          </Link>
-        </header>
+        <div className="sticky top-0 z-20 -mx-5 px-5 border-b border-white/10 bg-[#0a1f44]/90 backdrop-blur">
+          <header className="py-3 flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Tipps</h1>
+            <Link
+              href="/dashboard"
+              className="text-sm font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition-colors"
+            >
+              ← Zurück
+            </Link>
+          </header>
+          {matches.length > 0 && (
+            <div className="pb-3">
+              <StageStepper statuses={stageStatuses} />
+            </div>
+          )}
+        </div>
 
-        {matches.length > 0 && <StageStepper statuses={stageStatuses} />}
         {matches.length > 0 && <ScrollToTarget />}
 
         {matches.length === 0 && (
@@ -75,7 +81,7 @@ export default async function TippsPage() {
                   key={dayLabel}
                   open={isFuture || isTarget}
                   data-tipps-target={isTarget ? "true" : undefined}
-                  className="group scroll-mt-24 rounded-2xl bg-white/[0.02] border border-white/10"
+                  className="group scroll-mt-32 rounded-2xl bg-white/[0.02] border border-white/10"
                 >
                   <summary className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                     <div className="flex flex-col gap-1 min-w-0">

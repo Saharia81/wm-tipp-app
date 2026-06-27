@@ -45,7 +45,7 @@ export const STAGE_SHORT_LABELS: Record<Stage, string> = {
   GROUP: "Gr",
   ROUND_OF_32: "16",
   ROUND_OF_16: "8",
-  QUARTER_FINAL: "QF",
+  QUARTER_FINAL: "VF",
   SEMI_FINAL: "HF",
   THIRD_PLACE: "3.",
   FINAL: "Fi",
