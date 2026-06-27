@@ -45,13 +45,13 @@ export default async function DashboardPage() {
             href="/tipps"
             className="h-12 rounded-full bg-emerald-400 text-[#0a1f44] font-semibold flex items-center justify-center"
           >
-            Tipps
+            Meine Tipps
           </Link>
           <Link
             href="/tabelle"
             className="h-12 rounded-full bg-white/5 border border-white/15 text-white/80 font-medium flex items-center justify-center"
           >
-            Tabelle
+            Bestenliste
           </Link>
           <Link
             href="/gruppen"
