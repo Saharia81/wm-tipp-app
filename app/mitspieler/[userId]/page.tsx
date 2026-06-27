@@ -69,7 +69,10 @@ export default async function MitspielerPage({ params }: PageProps) {
       <div className="w-full max-w-md flex flex-col gap-6">
         <header className="sticky top-0 z-20 -mx-5 px-5 py-3 flex items-center justify-between border-b border-white/10 bg-[#0a1f44]/90 backdrop-blur">
           <h1 className="text-2xl font-bold truncate">{user.name}</h1>
-          <Link href="/tabelle" className="text-sm text-white/70 shrink-0 ml-3">
+          <Link
+            href="/tabelle"
+            className="text-sm font-medium px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition-colors shrink-0 ml-3"
+          >
             ← Zurück
           </Link>
         </header>
