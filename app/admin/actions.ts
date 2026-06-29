@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { applyMatchResult } from "@/lib/scoring";
 import { syncResultsFromOpenLigaDB, type SyncStats } from "@/lib/sync-results";
+import { isKnockoutStage } from "@/lib/stages";
 import { Stage } from "@/app/generated/prisma/client";
 
 const ResultSchema = z.object({
@@ -65,6 +66,21 @@ export async function saveResultAction(
   });
   if (!parsed.success) return { ok: false, error: "Ungültiges Ergebnis." };
   const { matchId, homeScore, awayScore } = parsed.data;
+
+  // KO matches always have a winner — the entered result includes extra time /
+  // penalties (e.g. 7:6), so a tie is never a valid final scoreline.
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    select: { stage: true },
+  });
+  if (!match) return { ok: false, error: "Spiel nicht gefunden." };
+  if (isKnockoutStage(match.stage) && homeScore === awayScore) {
+    return {
+      ok: false,
+      error:
+        "K.-o.-Spiele enden nie unentschieden — bitte das Ergebnis inkl. Elfmeterschießen eintragen.",
+    };
+  }
 
   // One transaction so the match update + tip recomputes + champion recompute (if FINAL) commit together.
   const tipsScored = await prisma.$transaction((tx) =>

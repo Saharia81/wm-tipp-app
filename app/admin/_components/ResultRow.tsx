@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { flagFor } from "@/lib/flags";
-import { stageLabel, type Stage } from "@/lib/stages";
+import { isKnockoutStage, stageLabel, type Stage } from "@/lib/stages";
 import {
   saveResultAction,
   clearResultAction,
@@ -43,6 +43,16 @@ export function ResultRow({ match }: ResultRowProps) {
   // Group matches are seeded and protected; only KO matches can be deleted.
   const canDelete = match.stage !== "GROUP";
   const busy = saving || clearing || deleting;
+
+  // Controlled scores, so we can block a KO tie live (a winner must be decided).
+  const [home, setHome] = useState<string>(
+    match.homeScore === null ? "" : String(match.homeScore),
+  );
+  const [away, setAway] = useState<string>(
+    match.awayScore === null ? "" : String(match.awayScore),
+  );
+  const drawBlocked =
+    isKnockoutStage(match.stage) && home !== "" && home === away;
   // Show the latest action's error/success; ignore the other.
   const lastState =
     saveState && clearState
@@ -71,22 +81,30 @@ export function ResultRow({ match }: ResultRowProps) {
           <div className="flex items-center gap-1">
             <ScoreInput
               name="homeScore"
-              defaultValue={match.homeScore ?? ""}
+              value={home}
+              onChange={setHome}
               disabled={busy}
             />
             <span className="text-white/50">:</span>
             <ScoreInput
               name="awayScore"
-              defaultValue={match.awayScore ?? ""}
+              value={away}
+              onChange={setAway}
               disabled={busy}
             />
           </div>
           <TeamLabel team={match.awayTeam} align="left" />
         </div>
 
+        {drawBlocked && (
+          <p className="text-xs text-red-300 bg-red-500/10 border border-red-400/30 rounded-lg px-3 py-2">
+            K.-o.-Spiele enden nie unentschieden — Endstand inkl.
+            Elfmeterschießen eintragen.
+          </p>
+        )}
         <button
           type="submit"
-          disabled={saving || clearing}
+          disabled={saving || clearing || drawBlocked}
           className="h-11 rounded-full bg-emerald-400 text-[#0a1f44] font-semibold disabled:opacity-60"
         >
           {saving
@@ -145,11 +163,13 @@ export function ResultRow({ match }: ResultRowProps) {
 
 function ScoreInput({
   name,
-  defaultValue,
+  value,
+  onChange,
   disabled,
 }: {
   name: string;
-  defaultValue: number | string;
+  value: string;
+  onChange: (value: string) => void;
   disabled: boolean;
 }) {
   return (
@@ -159,7 +179,8 @@ function ScoreInput({
       inputMode="numeric"
       min={0}
       max={30}
-      defaultValue={defaultValue === "" ? "" : String(defaultValue)}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       required
       className="w-12 h-11 text-center text-lg font-semibold rounded-lg bg-white/10 border border-white/15 text-white disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-emerald-400"

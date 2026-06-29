@@ -30,6 +30,12 @@ export const KO_STAGES: Stage[] = [
   "FINAL",
 ];
 
+// True for every stage except GROUP. In KO matches a winner must be decided, so a
+// drawn scoreline isn't a valid tip.
+export function isKnockoutStage(stage: Stage): boolean {
+  return KO_STAGES.includes(stage);
+}
+
 export const STAGE_LABELS: Record<Stage, string> = {
   GROUP: "Gruppe",
   ROUND_OF_32: "Sechzehntelfinale",

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { isKnockoutStage } from "@/lib/stages";
 
 // Per match: 0..30 covers any sane scoreline (Australia 31:0 American Samoa is the WC qualifier record).
 const TipSchema = z.object({
@@ -39,13 +40,19 @@ export async function saveTipAction(
   // Server-side deadline re-check. Never trust the client to lock past-kickoff matches.
   const match = await prisma.match.findUnique({
     where: { id: matchId },
-    select: { kickoffAt: true },
+    select: { kickoffAt: true, stage: true },
   });
   if (!match) {
     return { ok: false, error: "Spiel nicht gefunden." };
   }
   if (match.kickoffAt.getTime() <= Date.now()) {
     return { ok: false, error: "Deadline vorbei — Tipp nicht mehr möglich." };
+  }
+  if (isKnockoutStage(match.stage) && homeScore === awayScore) {
+    return {
+      ok: false,
+      error: "K.-o.-Spiele können nicht unentschieden getippt werden.",
+    };
   }
 
   await prisma.tip.upsert({
