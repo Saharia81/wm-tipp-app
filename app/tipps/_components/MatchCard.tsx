@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Avatar } from "@/app/_components/Avatar";
 import { flagFor } from "@/lib/flags";
-import { stageLabel, type Stage } from "@/lib/stages";
+import { isKnockoutStage, stageLabel, type Stage } from "@/lib/stages";
 import { saveTipAction, type SaveTipState } from "../actions";
 
 export type OtherTip = {
@@ -54,6 +54,12 @@ export function MatchCard({
   const errorMsg = state?.ok === false ? state.error : null;
   const hasResult = match.homeScore !== null && match.awayScore !== null;
 
+  // Controlled scores, so we can validate a KO draw live (a winner must be decided).
+  const [home, setHome] = useState<string>(String(shownHome));
+  const [away, setAway] = useState<string>(String(shownAway));
+  const drawBlocked =
+    isKnockoutStage(match.stage) && home !== "" && home === away;
+
   return (
     <form
       action={formAction}
@@ -93,13 +99,15 @@ export function MatchCard({
             <div className="flex items-center gap-1">
               <ScoreInput
                 name="homeScore"
-                value={shownHome}
+                value={home}
+                onChange={setHome}
                 disabled={locked || pending}
               />
               <span className="text-white/50">:</span>
               <ScoreInput
                 name="awayScore"
-                value={shownAway}
+                value={away}
+                onChange={setAway}
                 disabled={locked || pending}
               />
             </div>
@@ -163,14 +171,16 @@ export function MatchCard({
 
       {!locked && (
         <>
-          {errorMsg && (
+          {(errorMsg || drawBlocked) && (
             <p className="text-xs text-red-300 bg-red-500/10 border border-red-400/30 rounded-lg px-3 py-2">
-              {errorMsg}
+              {drawBlocked
+                ? "In der K.-o.-Phase muss ein Sieger feststehen — kein Unentschieden."
+                : errorMsg}
             </p>
           )}
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || drawBlocked}
             className="h-11 rounded-full bg-emerald-400 text-[#0a1f44] font-semibold disabled:opacity-60"
           >
             {pending
@@ -196,10 +206,12 @@ function ScoreBox({ value }: { value: number | null }) {
 function ScoreInput({
   name,
   value,
+  onChange,
   disabled,
 }: {
   name: string;
-  value: number | string;
+  value: string;
+  onChange: (value: string) => void;
   disabled: boolean;
 }) {
   return (
@@ -209,7 +221,8 @@ function ScoreInput({
       inputMode="numeric"
       min={0}
       max={30}
-      defaultValue={value === "" ? "" : String(value)}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       required
       className="w-12 h-11 text-center text-lg font-semibold rounded-lg bg-white/10 border border-white/15 text-white disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
